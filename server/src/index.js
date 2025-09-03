@@ -1,25 +1,30 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const morgan = require('morgan');
-const dotenv = require('dotenv');
-const http = require('http');
-const socketIO = require('socket.io');
-const path = require('path');
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import morgan from 'morgan';
+import dotenv from 'dotenv';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// ES6 module __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
-const authRoutes = require('./routes/auth');
-const roomRoutes = require('./routes/rooms');
-const codeRoutes = require('./routes/code');
-const reviewRoutes = require('./routes/reviews');
-const socketHandler = require('./config/socket');
+import authRoutes from './routes/auth.routes.js';
+import roomRoutes from './routes/rooms.routes.js';
+import codeRoutes from './routes/code.routes.js';
+import reviewRoutes from './routes/reviews.routes.js';
+import socketHandler from './config/socket.js';
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIO(server, {
+const server = createServer(app);
+const io = new Server(server, {
   cors: {
     origin: process.env.CLIENT_URL,
     credentials: true

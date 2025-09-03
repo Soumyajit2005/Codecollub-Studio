@@ -1,7 +1,7 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+import jwt from 'jsonwebtoken';
+import User from '../models/User.model.js';
 
-exports.authenticate = async (req, res, next) => {
+export const authenticate = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
@@ -24,7 +24,7 @@ exports.authenticate = async (req, res, next) => {
   }
 };
 
-exports.socketAuth = async (socket, next) => {
+export const socketAuth = async (socket, next) => {
   try {
     const token = socket.handshake.auth.token;
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
