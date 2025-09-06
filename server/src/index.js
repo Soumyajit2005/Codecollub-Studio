@@ -16,6 +16,10 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
+// Add after dotenv.config()
+console.log('MongoDB URI:', process.env.MONGODB_URI?.substring(0, 20) + '...');
+console.log('Port:', process.env.PORT);
+
 import authRoutes from './routes/auth.routes.js';
 import roomRoutes from './routes/rooms.routes.js';
 import codeRoutes from './routes/code.routes.js';
@@ -26,7 +30,7 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: process.env.CORS_ORIGIN,
     credentials: true
   }
 });
@@ -36,7 +40,7 @@ app.use(helmet());
 app.use(compression());
 app.use(morgan('dev'));
 app.use(cors({
-  origin: process.env.CLIENT_URL,
+  origin: process.env.CORS_ORIGIN,
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
