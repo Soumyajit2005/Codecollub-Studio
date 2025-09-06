@@ -31,11 +31,67 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  profile: {
+    firstName: String,
+    lastName: String,
+    bio: String,
+    location: String,
+    website: String,
+    company: String
+  },
+  preferences: {
+    theme: {
+      type: String,
+      enum: ['light', 'dark'],
+      default: 'light'
+    },
+    language: {
+      type: String,
+      default: 'javascript'
+    },
+    fontSize: {
+      type: Number,
+      default: 14
+    },
+    notifications: {
+      email: { type: Boolean, default: true },
+      browser: { type: Boolean, default: true },
+      collaborationInvites: { type: Boolean, default: true }
+    }
+  },
   rooms: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Room'
   }],
+  status: {
+    type: String,
+    enum: ['online', 'offline', 'busy'],
+    default: 'offline'
+  },
+  lastSeen: {
+    type: Date,
+    default: Date.now
+  },
+  subscription: {
+    plan: {
+      type: String,
+      enum: ['free', 'pro', 'team'],
+      default: 'free'
+    },
+    expiresAt: Date,
+    features: {
+      maxRooms: { type: Number, default: 3 },
+      maxParticipants: { type: Number, default: 5 },
+      videoChat: { type: Boolean, default: true },
+      screenShare: { type: Boolean, default: false },
+      privateRooms: { type: Boolean, default: false }
+    }
+  },
   createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
     type: Date,
     default: Date.now
   }

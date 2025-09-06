@@ -79,7 +79,121 @@ export const getMe = async (req, res) => {
       id: req.user._id,
       username: req.user.username,
       email: req.user.email,
-      avatar: req.user.avatar
+      avatar: req.user.avatar,
+      profile: req.user.profile,
+      preferences: req.user.preferences,
+      subscription: req.user.subscription,
+      status: req.user.status
     }
   });
+};
+
+export const updateProfile = async (req, res) => {
+  try {
+    const { firstName, lastName, bio, location, website, company } = req.body;
+    
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          'profile.firstName': firstName,
+          'profile.lastName': lastName,
+          'profile.bio': bio,
+          'profile.location': location,
+          'profile.website': website,
+          'profile.company': company,
+          updatedAt: new Date()
+        }
+      },
+      { new: true, select: '-password' }
+    );
+
+    res.json({ user });
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({ error: 'Server error updating profile' });
+  }
+};
+
+export const updatePreferences = async (req, res) => {
+  try {
+    const { theme, language, fontSize, notifications } = req.body;
+    
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          'preferences.theme': theme,
+          'preferences.language': language,
+          'preferences.fontSize': fontSize,
+          'preferences.notifications': notifications,
+          updatedAt: new Date()
+        }
+      },
+      { new: true, select: '-password' }
+    );
+
+    res.json({ user });
+  } catch (error) {
+    console.error('Preferences update error:', error);
+    res.status(500).json({ error: 'Server error updating preferences' });
+  }
+};
+
+export const updateStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    
+    if (!['online', 'offline', 'busy'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          status,
+          lastSeen: new Date(),
+          updatedAt: new Date()
+        }
+      },
+      { new: true, select: '-password' }
+    );
+
+    res.json({ user });
+  } catch (error) {
+    console.error('Status update error:', error);
+    res.status(500).json({ error: 'Server error updating status' });
+  }
+};
+
+export const refreshToken = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('-password');
+    const token = user.generateToken();
+    
+    res.json({ token });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    res.status(500).json({ error: 'Server error refreshing token' });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          status: 'offline',
+          lastSeen: new Date()
+        }
+      }
+    );
+    
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Server error during logout' });
+  }
 };

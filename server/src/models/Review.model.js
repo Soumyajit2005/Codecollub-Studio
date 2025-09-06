@@ -1,28 +1,69 @@
 import mongoose from 'mongoose';
 
 const reviewSchema = new mongoose.Schema({
-  code: {
+  roomId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Code',
+    ref: 'Room',
     required: true
   },
-  reviewer: {
+  title: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  description: String,
+  author: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  comments: [{
-    line: Number,
-    text: String,
-    severity: {
-      type: String,
-      enum: ['info', 'warning', 'error', 'suggestion'],
-      default: 'info'
+  reviewers: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
     },
-    resolved: {
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected', 'needs-changes'],
+      default: 'pending'
+    },
+    comment: String,
+    reviewedAt: Date
+  }],
+  files: [{
+    filename: String,
+    language: String,
+    content: String,
+    changes: [{
+      line: Number,
+      type: String,
+      oldContent: String,
+      newContent: String
+    }]
+  }],
+  comments: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    content: String,
+    line: Number,
+    file: String,
+    isResolved: {
       type: Boolean,
       default: false
     },
+    replies: [{
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      content: String,
+      timestamp: {
+        type: Date,
+        default: Date.now
+      }
+    }],
     timestamp: {
       type: Date,
       default: Date.now
@@ -30,13 +71,28 @@ const reviewSchema = new mongoose.Schema({
   }],
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected', 'changes-requested'],
-    default: 'pending'
+    enum: ['draft', 'open', 'approved', 'merged', 'rejected', 'closed'],
+    default: 'draft'
+  },
+  labels: [String],
+  priority: {
+    type: String,
+    enum: ['low', 'medium', 'high', 'critical'],
+    default: 'medium'
   },
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
+});
+
+reviewSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
 });
 
 export default mongoose.model('Review', reviewSchema);

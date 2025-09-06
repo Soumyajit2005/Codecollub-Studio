@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/soumy/OneDrive/Desktop/codecollab-studio/server/**)",
+      "Bash(npm run dev:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run lint)",
+      "Read(//c/Users/soumy/OneDrive/Desktop/codecollab-studio/**)",
+      "Bash(docker compose config:*)",
+      "Bash(docker run:*)",
+      "Bash(curl:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
