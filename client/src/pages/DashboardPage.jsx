@@ -27,7 +27,11 @@ import {
   FormControlLabel,
   Alert,
   Fab,
-  Skeleton
+  Skeleton,
+  Tabs,
+  Tab,
+  InputAdornment,
+  Pagination
 } from '@mui/material';
 import {
   Add,
@@ -40,7 +44,9 @@ import {
   Delete,
   Share,
   Lock,
-  Public
+  Public,
+  Search,
+  FilterList
 } from '@mui/icons-material';
 import { useForm } from 'react-hook-form';
 // Removed date-fns import - using native Date methods instead
@@ -63,11 +69,19 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
-  const [rooms, setRooms] = useState([]);
+  const [activeTab, setActiveTab] = useState(0);
+  const [myRooms, setMyRooms] = useState([]);
+  const [publicRooms, setPublicRooms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [publicLoading, setPublicLoading] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null);
+  
+  // Public rooms filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [languageFilter, setLanguageFilter] = useState('');
+  const [sortBy, setSortBy] = useState('recent');
 
   const {
     register,
@@ -84,7 +98,7 @@ const DashboardPage = () => {
   });
 
   useEffect(() => {
-    fetchRooms();
+    fetchMyRooms();
     
     // Check if create dialog should be opened
     if (searchParams.get('create') === 'true') {
@@ -93,23 +107,48 @@ const DashboardPage = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  const fetchRooms = async () => {
+  useEffect(() => {
+    if (activeTab === 1) {
+      fetchPublicRooms();
+    }
+  }, [activeTab, searchTerm, languageFilter, sortBy]);
+
+  const fetchMyRooms = async () => {
     try {
       setLoading(true);
       const response = await roomService.getRooms(1, 50);
-      setRooms(response.rooms || []);
+      setMyRooms(response.rooms || []);
     } catch (error) {
-      console.error('Failed to fetch rooms:', error);
-      toast.error('Failed to load rooms');
+      console.error('Failed to fetch my rooms:', error);
+      toast.error('Failed to load your rooms');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPublicRooms = async () => {
+    try {
+      setPublicLoading(true);
+      const response = await roomService.getPublicRooms({
+        search: searchTerm,
+        language: languageFilter,
+        sortBy,
+        page: 1,
+        limit: 24
+      });
+      setPublicRooms(response.rooms || []);
+    } catch (error) {
+      console.error('Failed to fetch public rooms:', error);
+      toast.error('Failed to load public rooms');
+    } finally {
+      setPublicLoading(false);
     }
   };
 
   const handleCreateRoom = async (data) => {
     try {
       const room = await roomService.createRoom(data);
-      setRooms(prev => [room, ...prev]);
+      setMyRooms(prev => [room, ...prev]);
       setCreateDialogOpen(false);
       reset();
       navigate(`/room/${room.roomId}`);
@@ -181,7 +220,7 @@ const DashboardPage = () => {
                   <Code />
                 </Avatar>
                 <Box>
-                  <Typography variant="h5">{rooms.length}</Typography>
+                  <Typography variant="h5">{myRooms.length}</Typography>
                   <Typography variant="body2" color="text.secondary">
                     Total Rooms
                   </Typography>
@@ -200,7 +239,7 @@ const DashboardPage = () => {
                 </Avatar>
                 <Box>
                   <Typography variant="h5">
-                    {rooms.filter(room => isOwner(room)).length}
+                    {myRooms.filter(room => isOwner(room)).length}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Owned Rooms
@@ -220,7 +259,7 @@ const DashboardPage = () => {
                 </Avatar>
                 <Box>
                   <Typography variant="h5">
-                    {rooms.filter(room => 
+                    {myRooms.filter(room => 
                       new Date(room.lastModified) > new Date(Date.now() - 24 * 60 * 60 * 1000)
                     ).length}
                   </Typography>
@@ -252,141 +291,326 @@ const DashboardPage = () => {
         </Grid>
       </Grid>
 
-      {/* Rooms Section */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" component="h2">
-          Your Rooms
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => setCreateDialogOpen(true)}
-        >
-          Create Room
-        </Button>
+      {/* Rooms Section with Tabs */}
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
+            <Tab label="My Rooms" />
+            <Tab label="Browse Public Rooms" />
+          </Tabs>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => setCreateDialogOpen(true)}
+          >
+            Create Room
+          </Button>
+        </Box>
+
+        {/* Search and Filter Bar for Public Rooms */}
+        {activeTab === 1 && (
+          <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+            <TextField
+              size="small"
+              placeholder="Search public rooms..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ minWidth: 250 }}
+            />
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel>Language</InputLabel>
+              <Select
+                value={languageFilter}
+                label="Language"
+                onChange={(e) => setLanguageFilter(e.target.value)}
+              >
+                <MenuItem value="">All Languages</MenuItem>
+                {LANGUAGES.map((lang) => (
+                  <MenuItem key={lang.value} value={lang.value}>
+                    {lang.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Sort By</InputLabel>
+              <Select
+                value={sortBy}
+                label="Sort By"
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <MenuItem value="recent">Recent</MenuItem>
+                <MenuItem value="popular">Popular</MenuItem>
+                <MenuItem value="name">Name</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        )}
       </Box>
 
-      {/* Rooms Grid */}
-      {loading ? (
-        <Grid container spacing={3}>
-          {[...Array(6)].map((_, index) => (
-            <Grid item xs={12} sm={6} md={4} key={index}>
-              <Card>
-                <CardContent>
-                  <Skeleton variant="text" width="60%" height={32} />
-                  <Skeleton variant="text" width="100%" />
-                  <Skeleton variant="text" width="80%" />
-                  <Box sx={{ mt: 2 }}>
-                    <Skeleton variant="circular" width={24} height={24} />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      ) : rooms.length === 0 ? (
-        <Card sx={{ textAlign: 'center', py: 8 }}>
-          <CardContent>
-            <Code sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              No rooms yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Create your first collaborative coding room to get started
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => setCreateDialogOpen(true)}
-            >
-              Create Your First Room
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Grid container spacing={3}>
-          {rooms.map((room) => {
-            const languageInfo = getLanguageInfo(room.language);
-            
-            return (
-              <Grid item xs={12} sm={6} md={4} key={room._id}>
-                <Card 
-                  sx={{ 
-                    height: '100%', 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    '&:hover': { boxShadow: 4 }
-                  }}
-                >
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                      <Typography variant="h6" component="h3" noWrap sx={{ flexGrow: 1 }}>
-                        {room.name}
-                      </Typography>
-                      <IconButton 
-                        size="small" 
-                        onClick={(e) => handleMenuOpen(e, room)}
-                        disabled={!isOwner(room)}
-                      >
-                        <MoreVert />
-                      </IconButton>
+      {/* Rooms Content */}
+      {activeTab === 0 ? (
+        // My Rooms Tab
+        loading ? (
+          <Grid container spacing={3}>
+            {[...Array(6)].map((_, index) => (
+              <Grid item xs={12} sm={6} md={4} key={index}>
+                <Card>
+                  <CardContent>
+                    <Skeleton variant="text" width="60%" height={32} />
+                    <Skeleton variant="text" width="100%" />
+                    <Skeleton variant="text" width="80%" />
+                    <Box sx={{ mt: 2 }}>
+                      <Skeleton variant="circular" width={24} height={24} />
                     </Box>
-                    
-                    <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                      <Chip
-                        label={languageInfo.label}
-                        size="small"
-                        sx={{ 
-                          bgcolor: languageInfo.color + '20',
-                          color: languageInfo.color,
-                          fontWeight: 600
-                        }}
-                      />
-                      <Chip
-                        icon={room.isPublic ? <Public /> : <Lock />}
-                        label={room.isPublic ? 'Public' : 'Private'}
-                        size="small"
-                        color={room.isPublic ? 'success' : 'default'}
-                      />
-                    </Box>
-                    
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Owner: {room.owner.username}
-                    </Typography>
-                    
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 24, height: 24, fontSize: '0.75rem' } }}>
-                        {room.participants?.map((participant, index) => (
-                          <Avatar key={index} sx={{ bgcolor: 'primary.main' }}>
-                            {participant.user.username.charAt(0).toUpperCase()}
-                          </Avatar>
-                        ))}
-                      </AvatarGroup>
-                      <Typography variant="caption" color="text.secondary">
-                        {room.participants?.length || 0} participants
-                      </Typography>
-                    </Box>
-                    
-                    <Typography variant="caption" color="text.secondary">
-                      Modified {new Date(room.lastModified).toLocaleDateString()}
-                    </Typography>
                   </CardContent>
-                  
-                  <CardActions>
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      startIcon={<PlayArrow />}
-                      onClick={() => handleJoinRoom(room)}
-                    >
-                      Join Room
-                    </Button>
-                  </CardActions>
                 </Card>
               </Grid>
-            );
-          })}
-        </Grid>
+            ))}
+          </Grid>
+        ) : myRooms.length === 0 ? (
+          <Card sx={{ textAlign: 'center', py: 8 }}>
+            <CardContent>
+              <Code sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" gutterBottom>
+                No rooms yet
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Create your first collaborative coding room to get started
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => setCreateDialogOpen(true)}
+              >
+                Create Your First Room
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Grid container spacing={3}>
+            {myRooms.map((room) => {
+              const languageInfo = getLanguageInfo(room.language);
+              
+              return (
+                <Grid item xs={12} sm={6} md={4} key={room._id}>
+                  <Card 
+                    sx={{ 
+                      height: '100%', 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      '&:hover': { boxShadow: 4 }
+                    }}
+                  >
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                        <Typography variant="h6" component="h3" noWrap sx={{ flexGrow: 1 }}>
+                          {room.name}
+                        </Typography>
+                        <IconButton 
+                          size="small" 
+                          onClick={(e) => handleMenuOpen(e, room)}
+                          disabled={!isOwner(room)}
+                        >
+                          <MoreVert />
+                        </IconButton>
+                      </Box>
+                      
+                      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                        <Chip
+                          label={languageInfo.label}
+                          size="small"
+                          sx={{ 
+                            bgcolor: languageInfo.color + '20',
+                            color: languageInfo.color,
+                            fontWeight: 600
+                          }}
+                        />
+                        <Chip
+                          icon={room.isPublic ? <Public /> : <Lock />}
+                          label={room.isPublic ? 'Public' : 'Private'}
+                          size="small"
+                          color={room.isPublic ? 'success' : 'default'}
+                        />
+                        {room.userRole && (
+                          <Chip
+                            label={room.userRole}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        )}
+                      </Box>
+                      
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Owner: {room.owner.username}
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 24, height: 24, fontSize: '0.75rem' } }}>
+                          {room.participants?.map((participant, index) => (
+                            <Avatar key={index} sx={{ bgcolor: 'primary.main' }}>
+                              {participant.user.username.charAt(0).toUpperCase()}
+                            </Avatar>
+                          ))}
+                        </AvatarGroup>
+                        <Typography variant="caption" color="text.secondary">
+                          {room.participantCount || room.participants?.length || 0} participants
+                        </Typography>
+                      </Box>
+                      
+                      <Typography variant="caption" color="text.secondary">
+                        Modified {new Date(room.lastModified).toLocaleDateString()}
+                      </Typography>
+                    </CardContent>
+                    
+                    <CardActions>
+                      <Button
+                        fullWidth
+                        variant="contained"
+                        startIcon={<PlayArrow />}
+                        onClick={() => handleJoinRoom(room)}
+                      >
+                        Join Room
+                      </Button>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+        )
+      ) : (
+        // Browse Public Rooms Tab
+        publicLoading ? (
+          <Grid container spacing={3}>
+            {[...Array(12)].map((_, index) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
+                <Card>
+                  <CardContent>
+                    <Skeleton variant="text" width="60%" height={32} />
+                    <Skeleton variant="text" width="100%" />
+                    <Skeleton variant="text" width="80%" />
+                    <Box sx={{ mt: 2 }}>
+                      <Skeleton variant="circular" width={24} height={24} />
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        ) : publicRooms.length === 0 ? (
+          <Card sx={{ textAlign: 'center', py: 8 }}>
+            <CardContent>
+              <Public sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" gutterBottom>
+                No public rooms found
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Try adjusting your search filters or create the first public room!
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => setCreateDialogOpen(true)}
+              >
+                Create Public Room
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Grid container spacing={3}>
+            {publicRooms.map((room) => {
+              const languageInfo = getLanguageInfo(room.language);
+              
+              return (
+                <Grid item xs={12} sm={6} md={4} lg={3} key={room._id}>
+                  <Card 
+                    sx={{ 
+                      height: '100%', 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      '&:hover': { boxShadow: 4 }
+                    }}
+                  >
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                        <Typography variant="h6" component="h3" noWrap sx={{ flexGrow: 1 }}>
+                          {room.name}
+                        </Typography>
+                        {room.isActive && (
+                          <Chip
+                            label="Live"
+                            size="small"
+                            color="success"
+                            variant="outlined"
+                          />
+                        )}
+                      </Box>
+                      
+                      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                        <Chip
+                          label={languageInfo.label}
+                          size="small"
+                          sx={{ 
+                            bgcolor: languageInfo.color + '20',
+                            color: languageInfo.color,
+                            fontWeight: 600
+                          }}
+                        />
+                        <Chip
+                          icon={<Public />}
+                          label="Public"
+                          size="small"
+                          color="success"
+                        />
+                      </Box>
+                      
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        by {room.owner.username}
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 24, height: 24, fontSize: '0.75rem' } }}>
+                          {room.participants?.slice(0, 4).map((participant, index) => (
+                            <Avatar key={index} sx={{ bgcolor: 'primary.main' }}>
+                              {participant.user.username.charAt(0).toUpperCase()}
+                            </Avatar>
+                          ))}
+                        </AvatarGroup>
+                        <Typography variant="caption" color="text.secondary">
+                          {room.participantCount || room.participants?.length || 0} active
+                        </Typography>
+                      </Box>
+                      
+                      <Typography variant="caption" color="text.secondary">
+                        {new Date(room.lastModified).toLocaleDateString()}
+                      </Typography>
+                    </CardContent>
+                    
+                    <CardActions>
+                      <Button
+                        fullWidth
+                        variant="contained"
+                        startIcon={<PlayArrow />}
+                        onClick={() => handleJoinRoom(room)}
+                      >
+                        Join Room
+                      </Button>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+        )
       )}
 
       {/* Floating Action Button */}

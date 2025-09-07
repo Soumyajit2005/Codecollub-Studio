@@ -52,16 +52,61 @@ export const createRoom = async (req, res) => {
 
 export const getRooms = async (req, res) => {
   try {
-    const rooms = await Room.find({
+    const { page = 1, limit = 20, type = 'all' } = req.query;
+    const skip = (page - 1) * limit;
+
+    let query = {
       $or: [
         { owner: req.user._id },
-        { 'participants.user': req.user._id },
-        { isPublic: true }
+        { 'participants.user': req.user._id }
       ]
-    }).populate('owner participants.user', 'username avatar')
-      .sort('-createdAt');
+    };
 
-    res.json({ rooms });
+    // Filter by room type
+    if (type === 'owned') {
+      query = { owner: req.user._id };
+    } else if (type === 'joined') {
+      query = { 
+        'participants.user': req.user._id,
+        owner: { $ne: req.user._id }
+      };
+    }
+
+    const rooms = await Room.find(query)
+      .populate('owner participants.user', 'username avatar')
+      .sort('-lastModified')
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const totalRooms = await Room.countDocuments(query);
+
+    // Add user role and activity status
+    const enhancedRooms = rooms.map(room => {
+      const isOwner = room.owner._id.toString() === req.user._id.toString();
+      const participant = room.participants.find(p => 
+        p.user._id.toString() === req.user._id.toString()
+      );
+
+      return {
+        ...room.toObject(),
+        userRole: isOwner ? 'owner' : participant?.role || 'viewer',
+        isActive: room.lastModified && 
+                  Date.now() - new Date(room.lastModified).getTime() < 10 * 60 * 1000,
+        participantCount: room.participants?.length || 0
+      };
+    });
+
+    res.json({
+      rooms: enhancedRooms,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(totalRooms / limit),
+        totalRooms,
+        hasNext: skip + rooms.length < totalRooms,
+        hasPrev: page > 1
+      }
+    });
   } catch (error) {
     console.error('Get rooms error:', error);
     res.status(500).json({ error: 'Failed to fetch rooms' });
@@ -104,9 +149,12 @@ export const joinRoom = async (req, res) => {
       return res.status(404).json({ error: 'Room not found' });
     }
 
-    // For public rooms, anyone can join directly
-    // For private rooms, they need to use room code endpoint
-    if (!room.isPublic) {
+    const isOwner = room.owner.toString() === req.user._id.toString();
+
+    // Room owners can always access their own rooms
+    // For public rooms, anyone can join directly  
+    // For private rooms, non-owners need to use room code endpoint
+    if (!room.isPublic && !isOwner) {
       return res.status(403).json({ error: 'This is a private room. Use room code to join.' });
     }
 
@@ -117,7 +165,7 @@ export const joinRoom = async (req, res) => {
     if (!alreadyParticipant) {
       room.participants.push({
         user: req.user._id,
-        role: 'editor'
+        role: isOwner ? 'owner' : 'editor'
       });
       await room.save();
     }
@@ -161,13 +209,76 @@ export const joinRoomByCode = async (req, res) => {
 
 export const getPublicRooms = async (req, res) => {
   try {
-    const rooms = await Room.find({ 
-      isPublic: true
-    }).populate('owner participants.user', 'username avatar')
-      .sort('-createdAt')
-      .limit(20);
+    const {
+      search = '',
+      language = '',
+      sortBy = 'recent', // recent, popular, name
+      page = 1,
+      limit = 12
+    } = req.query;
 
-    res.json({ rooms });
+    // Build search query
+    let query = { isPublic: true };
+    
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    if (language) {
+      query.language = language;
+    }
+
+    // Build sort criteria
+    let sortCriteria = {};
+    switch (sortBy) {
+      case 'popular':
+        sortCriteria = { 'participants': -1, 'stats.totalExecutions': -1 };
+        break;
+      case 'name':
+        sortCriteria = { name: 1 };
+        break;
+      case 'recent':
+      default:
+        sortCriteria = { lastModified: -1, createdAt: -1 };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const rooms = await Room.find(query)
+      .populate('owner participants.user', 'username avatar')
+      .sort(sortCriteria)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const totalRooms = await Room.countDocuments(query);
+
+    // Add activity status (active users in last 10 minutes)
+    const enhancedRooms = rooms.map(room => ({
+      ...room.toObject(),
+      isActive: room.lastModified && 
+                Date.now() - new Date(room.lastModified).getTime() < 10 * 60 * 1000,
+      participantCount: room.participants?.length || 0
+    }));
+
+    res.json({
+      rooms: enhancedRooms,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(totalRooms / limit),
+        totalRooms,
+        hasNext: skip + rooms.length < totalRooms,
+        hasPrev: page > 1
+      },
+      filters: {
+        search,
+        language,
+        sortBy
+      }
+    });
   } catch (error) {
     console.error('Get public rooms error:', error);
     res.status(500).json({ error: 'Failed to fetch public rooms' });

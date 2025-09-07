@@ -51,12 +51,32 @@ class RoomService {
     }
   }
 
-  async getRooms(page = 1, limit = 10) {
+  async getRooms(page = 1, limit = 20, type = 'all') {
     try {
-      const response = await this.api.get(`/?page=${page}&limit=${limit}`);
+      const response = await this.api.get(`/?page=${page}&limit=${limit}&type=${type}`);
       return response.data;
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to fetch rooms';
+      toast.error(message);
+      throw error;
+    }
+  }
+
+  async getPublicRooms(filters = {}) {
+    try {
+      const { search = '', language = '', sortBy = 'recent', page = 1, limit = 12 } = filters;
+      const queryParams = new URLSearchParams({
+        search,
+        language,
+        sortBy,
+        page: page.toString(),
+        limit: limit.toString()
+      });
+
+      const response = await this.api.get(`/public?${queryParams}`);
+      return response.data;
+    } catch (error) {
+      const message = error.response?.data?.error || 'Failed to fetch public rooms';
       toast.error(message);
       throw error;
     }
