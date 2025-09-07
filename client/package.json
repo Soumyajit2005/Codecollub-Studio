@@ -17,9 +17,11 @@
     "@mui/material": "^7.3.2",
     "@tailwindcss/vite": "^4.1.13",
     "axios": "^1.11.0",
+    "buffer": "^6.0.3",
     "fabric": "^6.7.1",
     "framer-motion": "^12.23.12",
     "konva": "^9.3.22",
+    "process": "^0.11.10",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-hook-form": "^7.62.0",
@@ -32,6 +34,8 @@
     "recordrtc": "^5.6.2",
     "simple-peer": "^9.11.1",
     "socket.io-client": "^4.8.1",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

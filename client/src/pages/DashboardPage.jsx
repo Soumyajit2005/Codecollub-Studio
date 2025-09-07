@@ -112,16 +112,16 @@ const DashboardPage = () => {
       setRooms(prev => [room, ...prev]);
       setCreateDialogOpen(false);
       reset();
-      navigate(`/room/${room._id}`);
+      navigate(`/room/${room.roomId}`);
     } catch (error) {
       console.error('Failed to create room:', error);
     }
   };
 
-  const handleJoinRoom = async (roomId) => {
+  const handleJoinRoom = async (room) => {
     try {
-      await roomService.joinRoom(roomId);
-      navigate(`/room/${roomId}`);
+      await roomService.joinRoom(room.roomId);
+      navigate(`/room/${room.roomId}`);
     } catch (error) {
       console.error('Failed to join room:', error);
     }
@@ -377,7 +377,7 @@ const DashboardPage = () => {
                       fullWidth
                       variant="contained"
                       startIcon={<PlayArrow />}
-                      onClick={() => handleJoinRoom(room._id)}
+                      onClick={() => handleJoinRoom(room)}
                     >
                       Join Room
                     </Button>

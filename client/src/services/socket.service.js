@@ -1,7 +1,7 @@
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:5000';
+const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
 
 class SocketService {
   constructor() {

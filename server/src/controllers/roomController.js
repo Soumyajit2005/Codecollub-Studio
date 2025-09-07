@@ -1,14 +1,33 @@
 import Room from '../models/Room.model.js';
 import { v4 as uuidv4 } from 'uuid';
 
+// Generate a 6-character room code
+const generateRoomCode = () => {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return result;
+};
+
 export const createRoom = async (req, res) => {
   try {
     const { name, language, isPublic } = req.body;
     const roomId = uuidv4();
+    
+    // Generate unique room code
+    let roomCode;
+    let existingRoom;
+    do {
+      roomCode = generateRoomCode();
+      existingRoom = await Room.findOne({ roomCode });
+    } while (existingRoom);
 
     const room = new Room({
       name,
       roomId,
+      roomCode,
       owner: req.user._id,
       language,
       isPublic,
@@ -85,6 +104,12 @@ export const joinRoom = async (req, res) => {
       return res.status(404).json({ error: 'Room not found' });
     }
 
+    // For public rooms, anyone can join directly
+    // For private rooms, they need to use room code endpoint
+    if (!room.isPublic) {
+      return res.status(403).json({ error: 'This is a private room. Use room code to join.' });
+    }
+
     const alreadyParticipant = room.participants.some(
       p => p.user.toString() === req.user._id.toString()
     );
@@ -102,6 +127,50 @@ export const joinRoom = async (req, res) => {
   } catch (error) {
     console.error('Join room error:', error);
     res.status(500).json({ error: 'Failed to join room' });
+  }
+};
+
+export const joinRoomByCode = async (req, res) => {
+  try {
+    const { roomCode } = req.body;
+    
+    const room = await Room.findOne({ roomCode: roomCode.toUpperCase() });
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found with this code' });
+    }
+
+    const alreadyParticipant = room.participants.some(
+      p => p.user.toString() === req.user._id.toString()
+    );
+
+    if (!alreadyParticipant) {
+      room.participants.push({
+        user: req.user._id,
+        role: 'editor'
+      });
+      await room.save();
+    }
+
+    await room.populate('owner participants.user', 'username avatar');
+    res.json({ message: 'Joined room successfully', room });
+  } catch (error) {
+    console.error('Join room by code error:', error);
+    res.status(500).json({ error: 'Failed to join room' });
+  }
+};
+
+export const getPublicRooms = async (req, res) => {
+  try {
+    const rooms = await Room.find({ 
+      isPublic: true
+    }).populate('owner participants.user', 'username avatar')
+      .sort('-createdAt')
+      .limit(20);
+
+    res.json({ rooms });
+  } catch (error) {
+    console.error('Get public rooms error:', error);
+    res.status(500).json({ error: 'Failed to fetch public rooms' });
   }
 };
 

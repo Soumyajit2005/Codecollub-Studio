@@ -94,7 +94,9 @@ class CodeExecutionService {
         throw new Error(`Unsupported language: ${language}`);
       }
 
-      const result = await this.runInDocker(executionId, config, code, input);
+      const result = process.env.DOCKER_ENABLED === 'true' 
+        ? await this.runInDocker(executionId, config, code, input)
+        : await this.runLocally(executionId, config, code, input);
       
       await Execution.findOneAndUpdate(
         { executionId },
@@ -337,6 +339,80 @@ class CodeExecutionService {
         hasPrev: page > 1
       }
     };
+  }
+
+  async runLocally(executionId, config, code, input) {
+    const tempDir = path.join(process.cwd(), 'temp', executionId);
+    
+    try {
+      await fs.mkdir(tempDir, { recursive: true });
+      
+      const filename = `code${config.fileExtension}`;
+      const filepath = path.join(tempDir, filename);
+      
+      await fs.writeFile(filepath, code);
+      
+      if (input) {
+        await fs.writeFile(path.join(tempDir, 'input.txt'), input);
+      }
+      
+      const startTime = Date.now();
+      let command;
+      
+      switch (config.language || config.fileExtension.substring(1)) {
+        case 'javascript':
+        case '.js':
+          command = `node "${filepath}"`;
+          break;
+        case 'python':
+        case '.py':
+          command = `python "${filepath}"`;
+          break;
+        default:
+          throw new Error(`Local execution not supported for ${config.fileExtension}`);
+      }
+      
+      if (input) {
+        command += ` < "${path.join(tempDir, 'input.txt')}"`;
+      }
+      
+      const { stdout, stderr } = await execAsync(command, {
+        cwd: tempDir,
+        timeout: config.timeout || 30000,
+        maxBuffer: 1024 * 1024 // 1MB
+      });
+      
+      const endTime = Date.now();
+      
+      return {
+        output: {
+          stdout: stdout || '',
+          stderr: stderr || '',
+          exitCode: 0,
+          executionTime: endTime - startTime,
+          memoryUsed: 'N/A (local execution)'
+        },
+        status: 'completed'
+      };
+      
+    } catch (error) {
+      return {
+        output: {
+          error: error.message,
+          stderr: error.stderr || '',
+          executionTime: 0,
+          memoryUsed: 'N/A'
+        },
+        status: error.code === 'TIMEOUT' ? 'timeout' : 'failed'
+      };
+    } finally {
+      // Cleanup temp directory
+      try {
+        await fs.rm(tempDir, { recursive: true, force: true });
+      } catch (cleanupError) {
+        console.error('Cleanup error:', cleanupError);
+      }
+    }
   }
 
   async getExecutionById(executionId) {

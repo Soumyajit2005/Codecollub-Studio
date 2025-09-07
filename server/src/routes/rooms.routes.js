@@ -5,6 +5,8 @@ import {
   getRooms,
   getRoom,
   joinRoom,
+  joinRoomByCode,
+  getPublicRooms,
   updateCode
 } from '../controllers/roomController.js';
 
@@ -14,8 +16,10 @@ router.use(authenticate);
 
 router.post('/', createRoom);
 router.get('/', getRooms);
+router.get('/public', getPublicRooms);
 router.get('/:roomId', getRoom);
 router.post('/:roomId/join', joinRoom);
+router.post('/join-by-code', joinRoomByCode);
 router.put('/:roomId/code', updateCode);
 
 export default router;

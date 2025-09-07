@@ -11,6 +11,12 @@ const roomSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  roomCode: {
+    type: String,
+    required: true,
+    unique: true,
+    uppercase: true
+  },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -45,8 +51,8 @@ const roomSchema = new mongoose.Schema({
     default: false
   },
   whiteboard: {
-    data: String,
-    lastModified: Date,
+    data: { type: String, default: null },
+    lastModified: { type: Date, default: Date.now },
     version: { type: Number, default: 1 }
   },
   settings: {
@@ -69,19 +75,19 @@ const roomSchema = new mongoose.Schema({
     memoryLimit: { type: String, default: '128MB' }
   },
   templates: [{
-    name: String,
-    code: String,
-    language: String,
-    description: String
+    name: { type: String, required: true },
+    code: { type: String, required: true },
+    language: { type: String, required: true },
+    description: { type: String, default: '' }
   }],
   activity: [{
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    action: String,
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    action: { type: String, required: true },
     timestamp: { type: Date, default: Date.now },
     data: mongoose.Schema.Types.Mixed
   }],
   reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Review' }],
-  tags: [String],
+  tags: [{ type: String, trim: true }],
   stats: {
     totalSessions: { type: Number, default: 0 },
     totalExecutions: { type: Number, default: 0 },

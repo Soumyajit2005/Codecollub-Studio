@@ -5,15 +5,29 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss()  // Add this Tailwind plugin
+    tailwindcss()
   ],
   server: {
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:3001',
         changeOrigin: true
       }
+    }
+  },
+  define: {
+    global: 'globalThis',
+  },
+  optimizeDeps: {
+    include: ['simple-peer']
+  },
+  resolve: {
+    alias: {
+      buffer: 'buffer',
+      process: 'process/browser',
+      stream: 'stream-browserify',
+      util: 'util'
     }
   }
 })

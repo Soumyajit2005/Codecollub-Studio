@@ -1,7 +1,7 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 class AuthService {
   constructor() {
@@ -157,6 +157,26 @@ class AuthService {
 
   getToken() {
     return localStorage.getItem('token');
+  }
+
+  async uploadAvatar(file) {
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      
+      const response = await this.api.post('/upload-avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      toast.success('Avatar uploaded successfully!');
+      return response.data;
+    } catch (error) {
+      const message = error.response?.data?.error || 'Avatar upload failed';
+      toast.error(message);
+      throw error;
+    }
   }
 
   setAuthHeader(token) {

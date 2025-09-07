@@ -1,5 +1,6 @@
 import User from '../models/User.model.js';
 import { validationResult } from 'express-validator';
+import cloudinary from '../config/cloudinary.js';
 
 export const register = async (req, res) => {
   try {
@@ -176,6 +177,52 @@ export const refreshToken = async (req, res) => {
   } catch (error) {
     console.error('Token refresh error:', error);
     res.status(500).json({ error: 'Server error refreshing token' });
+  }
+};
+
+export const uploadAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Upload to Cloudinary
+    const result = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          folder: 'codecollab/avatars',
+          transformation: [
+            { width: 200, height: 200, crop: 'fill' },
+            { quality: 'auto' }
+          ]
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      ).end(req.file.buffer);
+    });
+
+    // Update user avatar
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          avatar: result.secure_url,
+          updatedAt: new Date()
+        }
+      },
+      { new: true, select: '-password' }
+    );
+
+    res.json({
+      message: 'Avatar uploaded successfully',
+      avatarUrl: result.secure_url,
+      user
+    });
+  } catch (error) {
+    console.error('Avatar upload error:', error);
+    res.status(500).json({ error: 'Failed to upload avatar' });
   }
 };
 

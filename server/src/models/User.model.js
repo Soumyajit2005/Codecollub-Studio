@@ -32,12 +32,12 @@ const userSchema = new mongoose.Schema({
     default: null
   },
   profile: {
-    firstName: String,
-    lastName: String,
-    bio: String,
-    location: String,
-    website: String,
-    company: String
+    firstName: { type: String, default: '' },
+    lastName: { type: String, default: '' },
+    bio: { type: String, default: '' },
+    location: { type: String, default: '' },
+    website: { type: String, default: '' },
+    company: { type: String, default: '' }
   },
   preferences: {
     theme: {
