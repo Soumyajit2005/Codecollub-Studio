@@ -13,7 +13,6 @@ import ProfilePage from './pages/ProfilePage';
 
 // Components
 import ProtectedRoute from './components/Auth/ProtectedRoute';
-import Navbar from './components/Layout/Navbar';
 import LoadingScreen from './components/Common/LoadingScreen';
 import PageTransition from './components/PageTransition';
 
@@ -235,7 +234,6 @@ function App() {
       <CssBaseline />
       <Router>
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-          {user && <Navbar />}
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <PageTransition>
               <Routes>

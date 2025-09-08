@@ -10,7 +10,10 @@
       "Bash(npm run dev:*)",
       "Bash(npm start)",
       "Bash(taskkill:*)",
-      "Bash(set PORT=3002)"
+      "Bash(set PORT=3002)",
+      "Bash(npm run:*)",
+      "Bash(timeout 10 node:*)",
+      "Bash(exit 0)"
     ],
     "deny": [],
     "ask": []

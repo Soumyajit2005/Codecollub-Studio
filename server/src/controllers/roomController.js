@@ -13,7 +13,7 @@ const generateRoomCode = () => {
 
 export const createRoom = async (req, res) => {
   try {
-    const { name, language, isPublic } = req.body;
+    const { name, description, language, isPublic, tags, capacity } = req.body;
     const roomId = uuidv4();
     
     // Generate unique room code
@@ -26,11 +26,23 @@ export const createRoom = async (req, res) => {
 
     const room = new Room({
       name,
+      description,
       roomId,
       roomCode,
       owner: req.user._id,
       language,
       isPublic,
+      tags: tags || [],
+      settings: {
+        maxParticipants: capacity || 10,
+        allowGuests: false,
+        autoSave: true,
+        autoSaveInterval: 30,
+        codeExecution: true,
+        videoChat: true,
+        screenShare: true,
+        whiteboard: true
+      },
       participants: [{
         user: req.user._id,
         role: 'owner'
@@ -117,8 +129,15 @@ export const getRoom = async (req, res) => {
   try {
     const { roomId } = req.params;
     
-    const room = await Room.findOne({ roomId })
+    // Try to find by roomId (UUID) first, then by MongoDB _id
+    let room = await Room.findOne({ roomId })
       .populate('owner participants.user', 'username avatar');
+    
+    if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+      // If not found and roomId looks like MongoDB ObjectId, try finding by _id
+      room = await Room.findById(roomId)
+        .populate('owner participants.user', 'username avatar');
+    }
 
     if (!room) {
       return res.status(404).json({ error: 'Room not found' });
@@ -144,7 +163,13 @@ export const joinRoom = async (req, res) => {
   try {
     const { roomId } = req.params;
     
-    const room = await Room.findOne({ roomId });
+    // Try to find by roomId (UUID) first, then by MongoDB _id
+    let room = await Room.findOne({ roomId });
+    if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+      // If not found and roomId looks like MongoDB ObjectId, try finding by _id
+      room = await Room.findById(roomId);
+    }
+    
     if (!room) {
       return res.status(404).json({ error: 'Room not found' });
     }
@@ -285,16 +310,88 @@ export const getPublicRooms = async (req, res) => {
   }
 };
 
+export const leaveRoom = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    
+    // Try to find by roomId (UUID) first, then by MongoDB _id
+    let room = await Room.findOne({ roomId });
+    if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+      // If not found and roomId looks like MongoDB ObjectId, try finding by _id
+      room = await Room.findById(roomId);
+    }
+    
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Remove user from participants
+    room.participants = room.participants.filter(
+      p => p.user.toString() !== req.user._id.toString()
+    );
+    
+    await room.save();
+    res.json({ message: 'Left room successfully' });
+  } catch (error) {
+    console.error('Leave room error:', error);
+    res.status(500).json({ error: 'Failed to leave room' });
+  }
+};
+
+export const deleteRoom = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    
+    // Try to find by roomId (UUID) first, then by MongoDB _id
+    let room = await Room.findOne({ roomId });
+    if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+      // If not found and roomId looks like MongoDB ObjectId, try finding by _id
+      room = await Room.findById(roomId);
+    }
+    
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Only owner can delete the room
+    if (room.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Only room owner can delete the room' });
+    }
+
+    // Delete using the same method we found it
+    if (roomId.match(/^[0-9a-fA-F]{24}$/)) {
+      await Room.findByIdAndDelete(roomId);
+    } else {
+      await Room.findOneAndDelete({ roomId });
+    }
+    res.json({ message: 'Room deleted successfully' });
+  } catch (error) {
+    console.error('Delete room error:', error);
+    res.status(500).json({ error: 'Failed to delete room' });
+  }
+};
+
 export const updateCode = async (req, res) => {
   try {
     const { roomId } = req.params;
     const { code, language } = req.body;
 
-    const room = await Room.findOneAndUpdate(
+    let room;
+    // Try to find by roomId (UUID) first, then by MongoDB _id
+    room = await Room.findOneAndUpdate(
       { roomId },
       { code, language, lastModified: Date.now() },
       { new: true }
     );
+    
+    if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+      // If not found and roomId looks like MongoDB ObjectId, try finding by _id
+      room = await Room.findByIdAndUpdate(
+        roomId,
+        { code, language, lastModified: Date.now() },
+        { new: true }
+      );
+    }
 
     if (!room) {
       return res.status(404).json({ error: 'Room not found' });

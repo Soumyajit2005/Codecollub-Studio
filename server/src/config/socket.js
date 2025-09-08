@@ -18,8 +18,15 @@ export default (io) => {
     // Join room
     socket.on('join-room', async (roomId) => {
       try {
-        const room = await Room.findOne({ roomId })
+        // Try to find by roomId (UUID) first, then by MongoDB _id
+        let room = await Room.findOne({ roomId })
           .populate('participants.user', 'username avatar');
+        
+        if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+          // If not found and roomId looks like MongoDB ObjectId, try finding by _id
+          room = await Room.findById(roomId)
+            .populate('participants.user', 'username avatar');
+        }
         
         if (!room) {
           socket.emit('error', { message: 'Room not found' });
@@ -68,8 +75,8 @@ export default (io) => {
       try {
         const { roomId, code, language, cursor, operation } = data;
         
-        // Update in database
-        await Room.findOneAndUpdate(
+        // Update in database - try both UUID and ObjectId formats
+        let room = await Room.findOneAndUpdate(
           { roomId },
           { 
             code, 
@@ -78,6 +85,18 @@ export default (io) => {
             $inc: { 'stats.linesOfCode': 1 }
           }
         );
+        
+        if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+          room = await Room.findByIdAndUpdate(
+            roomId,
+            { 
+              code, 
+              language, 
+              lastModified: Date.now(),
+              $inc: { 'stats.linesOfCode': 1 }
+            }
+          );
+        }
 
         // Broadcast to others in room with operation for conflict resolution
         socket.to(roomId).emit('code-update', {
@@ -99,8 +118,12 @@ export default (io) => {
       try {
         const { roomId, code, language, input } = data;
         
-        // Check permissions
-        const room = await Room.findOne({ roomId });
+        // Check permissions - try both UUID and ObjectId formats
+        let room = await Room.findOne({ roomId });
+        if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+          room = await Room.findById(roomId);
+        }
+        
         if (!room || !room.settings.codeExecution) {
           socket.emit('execution-error', { message: 'Code execution not allowed in this room' });
           return;
@@ -149,9 +172,14 @@ export default (io) => {
       try {
         const { roomId, message, type = 'text' } = data;
         
-        // Save to session chat history
+        // Save to session chat history - try both UUID and ObjectId formats
+        let roomDoc = await Room.findOne({ roomId }).select('_id');
+        if (!roomDoc && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+          roomDoc = await Room.findById(roomId).select('_id');
+        }
+        
         let session = await Session.findOne({ 
-          roomId: await Room.findOne({ roomId }).select('_id'),
+          roomId: roomDoc?._id,
           status: 'active'
         });
         
@@ -236,8 +264,12 @@ export default (io) => {
       try {
         const { roomId, drawData } = data;
         
-        // Save whiteboard state
-        const room = await Room.findOne({ roomId });
+        // Save whiteboard state - try both UUID and ObjectId formats
+        let room = await Room.findOne({ roomId });
+        if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+          room = await Room.findById(roomId);
+        }
+        
         if (room) {
           room.whiteboard = {
             data: JSON.stringify(drawData),
@@ -259,7 +291,12 @@ export default (io) => {
 
     socket.on('whiteboard-clear', async (roomId) => {
       try {
-        const room = await Room.findOne({ roomId });
+        // Try both UUID and ObjectId formats
+        let room = await Room.findOne({ roomId });
+        if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+          room = await Room.findById(roomId);
+        }
+        
         if (room) {
           room.whiteboard = {
             data: null,
@@ -281,7 +318,12 @@ export default (io) => {
     // Request whiteboard sync
     socket.on('whiteboard-sync-request', async (roomId) => {
       try {
-        const room = await Room.findOne({ roomId });
+        // Try both UUID and ObjectId formats
+        let room = await Room.findOne({ roomId });
+        if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+          room = await Room.findById(roomId);
+        }
+        
         if (room && room.whiteboard?.data) {
           socket.emit('whiteboard-sync', {
             drawData: JSON.parse(room.whiteboard.data),
@@ -312,8 +354,12 @@ export default (io) => {
       try {
         socket.leave(roomId);
         
-        // Update session
-        const room = await Room.findOne({ roomId });
+        // Update session - try both UUID and ObjectId formats
+        let room = await Room.findOne({ roomId });
+        if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+          room = await Room.findById(roomId);
+        }
+        
         if (room) {
           let session = await Session.findOne({ 
             roomId: room._id,
@@ -360,7 +406,12 @@ export default (io) => {
     socket.on('user-activity', async (data) => {
       try {
         const { roomId, activity, data: activityData } = data;
-        const room = await Room.findOne({ roomId });
+        
+        // Try both UUID and ObjectId formats
+        let room = await Room.findOne({ roomId });
+        if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+          room = await Room.findById(roomId);
+        }
         
         if (room) {
           room.activity.push({
@@ -405,8 +456,12 @@ export default (io) => {
         if (socket.currentRoom && roomParticipants.has(socket.currentRoom)) {
           roomParticipants.get(socket.currentRoom).delete(socket.userId);
           
-          // Update session
-          const room = await Room.findOne({ roomId: socket.currentRoom });
+          // Update session - try both UUID and ObjectId formats
+          let room = await Room.findOne({ roomId: socket.currentRoom });
+          if (!room && socket.currentRoom.match(/^[0-9a-fA-F]{24}$/)) {
+            room = await Room.findById(socket.currentRoom);
+          }
+          
           if (room) {
             let session = await Session.findOne({ 
               roomId: room._id,

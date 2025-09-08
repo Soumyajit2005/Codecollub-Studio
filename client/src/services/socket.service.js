@@ -146,7 +146,10 @@ class SocketService {
     if (this.socket && this.connected) {
       this.socket.emit(event, data);
     } else {
-      console.warn(`Cannot emit ${event}: not connected to server`);
+      // Only show warning for important events, not for cleanup events
+      if (!['leave-room'].includes(event)) {
+        console.warn(`Cannot emit ${event}: not connected to server`);
+      }
     }
   }
 

@@ -62,6 +62,17 @@ class RoomService {
     }
   }
 
+  async getUserRooms() {
+    try {
+      const response = await this.api.get('/?type=all');
+      return response.data.rooms || [];
+    } catch (error) {
+      const message = error.response?.data?.error || 'Failed to fetch user rooms';
+      console.error('Failed to load user rooms:', error);
+      throw error;
+    }
+  }
+
   async getPublicRooms(filters = {}) {
     try {
       const { search = '', language = '', sortBy = 'recent', page = 1, limit = 12 } = filters;
