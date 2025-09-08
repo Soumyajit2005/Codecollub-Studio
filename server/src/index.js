@@ -30,8 +30,8 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN,
-    credentials: true
+    origin: "*",
+    credentials: false
   }
 });
 
@@ -40,8 +40,8 @@ app.use(helmet());
 app.use(compression());
 app.use(morgan('dev'));
 app.use(cors({
-  origin: process.env.CORS_ORIGIN,
-  credentials: true
+  origin: "*",
+  credentials: false
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -82,6 +82,8 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+server.listen(PORT, 'localhost', () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌐 Server accessible from any device on network`);
+  console.log(`📡 Socket.IO server ready`);
 });

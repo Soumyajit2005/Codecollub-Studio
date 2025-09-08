@@ -1,6 +1,6 @@
 import User from '../models/User.model.js';
 import { validationResult } from 'express-validator';
-import cloudinary from '../config/cloudinary.js';
+import { v2 as cloudinary } from 'cloudinary';
 
 export const register = async (req, res) => {
   try {
@@ -186,6 +186,23 @@ export const uploadAvatar = async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    // Configure Cloudinary inline to ensure credentials are available
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+      secure: true
+    });
+
+    // Debug Cloudinary config
+    console.log('Avatar Upload - Cloudinary config:', {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY ? 'SET' : 'MISSING',
+      api_secret: process.env.CLOUDINARY_API_SECRET ? 'SET' : 'MISSING',
+      file_size: req.file.size,
+      file_mimetype: req.file.mimetype
+    });
+
     // Upload to Cloudinary
     const result = await new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
@@ -197,8 +214,12 @@ export const uploadAvatar = async (req, res) => {
           ]
         },
         (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
+          if (error) {
+            console.error('Cloudinary upload error:', error);
+            reject(error);
+          } else {
+            resolve(result);
+          }
         }
       ).end(req.file.buffer);
     });

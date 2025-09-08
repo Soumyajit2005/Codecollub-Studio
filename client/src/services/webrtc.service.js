@@ -184,6 +184,12 @@ class WebRTCService {
     });
 
     peer.on('stream', (remoteStream) => {
+      console.log('Received remote stream from:', targetUserId);
+      console.log('Stream tracks:', remoteStream.getTracks().length);
+      remoteStream.getTracks().forEach(track => {
+        console.log('Track:', track.kind, track.enabled);
+      });
+      
       if (this.callbacks.onRemoteStream) {
         this.callbacks.onRemoteStream(remoteStream, targetUserId);
       }

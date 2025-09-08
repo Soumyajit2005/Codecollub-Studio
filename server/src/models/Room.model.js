@@ -6,6 +6,11 @@ const roomSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  description: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   roomId: {
     type: String,
     required: true,

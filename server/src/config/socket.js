@@ -165,7 +165,11 @@ export default (io) => {
           await session.save();
         }
         
+        // Generate unique message ID to prevent duplicates
+        const messageId = `msg_${socket.userId}_${Date.now()}_${Math.random()}`;
+        
         io.to(roomId).emit('new-message', {
+          id: messageId,
           userId: socket.userId,
           username: socket.user.username,
           avatar: socket.user.avatar,
