@@ -245,7 +245,7 @@ const RoomPage = () => {
         console.warn('Cleanup error:', error);
       }
     };
-  }, [roomId, user]);
+  }, [roomId, user?.id]); // Only depend on user ID to prevent unnecessary re-renders
 
   const setupSocketListeners = () => {
     const socket = socketService.socket;
@@ -261,6 +261,7 @@ const RoomPage = () => {
     socket.off('user-joined');
     socket.off('user-left');
     socket.off('room-participants');
+    socket.off('room-participants-updated');
     socket.off('error');
     socket.off('whiteboard-update');
     socket.off('whiteboard-cleared');
@@ -274,6 +275,7 @@ const RoomPage = () => {
     socket.on('user-joined', handleUserJoined);
     socket.on('user-left', handleUserLeft);
     socket.on('room-participants', handleRoomParticipants);
+    socket.on('room-participants-updated', handleRoomParticipants);
     socket.on('error', handleSocketError);
     
     // Whiteboard events
@@ -363,8 +365,24 @@ const RoomPage = () => {
 
   const handleRoomParticipants = useCallback((participantsData) => {
     console.log('🏠 Room participants received:', participantsData);
-    setParticipants(participantsData);
-    setOnlineUsers(new Set(participantsData.map(p => p.userId)));
+    
+    // Ensure we have valid participant data
+    const validParticipants = Array.isArray(participantsData) 
+      ? participantsData.filter(p => p && p.userId && p.username)
+      : [];
+    
+    // Remove duplicates based on userId
+    const uniqueParticipants = validParticipants.reduce((acc, current) => {
+      const exists = acc.find(p => p.userId === current.userId);
+      if (!exists) {
+        acc.push(current);
+      }
+      return acc;
+    }, []);
+    
+    console.log('🏠 Setting unique participants:', uniqueParticipants);
+    setParticipants(uniqueParticipants);
+    setOnlineUsers(new Set(uniqueParticipants.map(p => p.userId)));
   }, []);
 
   const handleCodeSync = useCallback((data) => {
@@ -1204,8 +1222,11 @@ const RoomPage = () => {
                     <List>
                       <ListItem>
                         <ListItemAvatar>
-                          <Avatar sx={{ bgcolor: '#4285f4' }}>
-                            {user.username.charAt(0).toUpperCase()}
+                          <Avatar 
+                            src={user.avatar} 
+                            sx={{ bgcolor: '#4285f4', width: 40, height: 40 }}
+                          >
+                            {!user.avatar && user.username.charAt(0).toUpperCase()}
                           </Avatar>
                         </ListItemAvatar>
                         <ListItemText
@@ -1214,7 +1235,7 @@ const RoomPage = () => {
                           sx={{ '& .MuiListItemText-primary': { color: 'white' } }}
                         />
                       </ListItem>
-                      {participants.map((participant) => (
+                      {participants.filter(p => p.userId !== user?.id).map((participant) => (
                         <ListItem key={participant.userId}>
                           <ListItemAvatar>
                             <Badge
@@ -1222,8 +1243,11 @@ const RoomPage = () => {
                               color="success"
                               invisible={!onlineUsers.has(participant.userId)}
                             >
-                              <Avatar>
-                                {participant.username.charAt(0).toUpperCase()}
+                              <Avatar 
+                                src={participant.avatar} 
+                                sx={{ width: 40, height: 40 }}
+                              >
+                                {!participant.avatar && participant.username.charAt(0).toUpperCase()}
                               </Avatar>
                             </Badge>
                           </ListItemAvatar>

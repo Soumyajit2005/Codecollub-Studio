@@ -81,8 +81,8 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, 'localhost', () => {
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌐 Server accessible from any device on network`);
   console.log(`📡 Socket.IO server ready`);

@@ -12,7 +12,7 @@ export default (io) => {
   const roomParticipants = new Map();
 
   io.on('connection', (socket) => {
-    console.log(`User ${socket.user.username} connected`);
+    console.log(`🔌 User ${socket.user.username} (ID: ${socket.userId}) connected`);
     activeUsers.set(socket.userId, socket.id);
 
     // Join room
@@ -49,20 +49,45 @@ export default (io) => {
           avatar: socket.user.avatar
         });
 
-        // Send current participants
-        const participants = Array.from(roomParticipants.get(roomId))
-          .map(userId => {
-            const user = room.participants.find(p => 
-              p.user._id.toString() === userId
-            );
-            return user ? {
+        // Get all currently connected users in this room
+        const connectedUsers = Array.from(roomParticipants.get(roomId) || []);
+        
+        // Build participants list from active socket connections
+        const activeParticipants = [];
+        
+        for (const userId of connectedUsers) {
+          // Try to find in room participants first
+          const roomParticipant = room.participants.find(p => 
+            p.user._id.toString() === userId
+          );
+          
+          if (roomParticipant) {
+            activeParticipants.push({
               userId,
-              username: user.user.username,
-              avatar: user.user.avatar
-            } : null;
-          }).filter(Boolean);
-
-        socket.emit('room-participants', participants);
+              username: roomParticipant.user.username,
+              avatar: roomParticipant.user.avatar,
+              role: roomParticipant.role,
+              isActive: true
+            });
+          } else {
+            // If current connecting user, add them
+            if (userId === socket.userId) {
+              activeParticipants.push({
+                userId: socket.userId,
+                username: socket.user.username,
+                avatar: socket.user.avatar,
+                role: 'participant',
+                isActive: true
+              });
+            }
+          }
+        }
+        
+        console.log(`Room ${roomId}: ${activeParticipants.length} active participants`);
+        
+        // Send participants list to current user and broadcast to room
+        socket.emit('room-participants', activeParticipants);
+        socket.to(roomId).emit('room-participants-updated', activeParticipants);
         socket.emit('code-sync', { code: room.code, language: room.language });
       } catch (error) {
         console.error('Join room error:', error);
@@ -444,7 +469,7 @@ export default (io) => {
     // Disconnect with cleanup
     socket.on('disconnect', async () => {
       try {
-        console.log(`User ${socket.user.username} disconnected`);
+        console.log(`🔌❌ User ${socket.user.username} (ID: ${socket.userId}) disconnected`);
         activeUsers.delete(socket.userId);
         
         // Update user status
@@ -455,6 +480,9 @@ export default (io) => {
         
         if (socket.currentRoom && roomParticipants.has(socket.currentRoom)) {
           roomParticipants.get(socket.currentRoom).delete(socket.userId);
+          
+          // Get updated participants list and broadcast
+          const remainingParticipants = Array.from(roomParticipants.get(socket.currentRoom) || []);
           
           // Update session - try both UUID and ObjectId formats
           let room = await Room.findOne({ roomId: socket.currentRoom });
@@ -479,6 +507,25 @@ export default (io) => {
                 await session.save();
               }
             }
+            
+            // Build updated participants list
+            const updatedParticipants = remainingParticipants
+              .map(userId => {
+                const roomParticipant = room.participants.find(p => 
+                  p.user._id.toString() === userId
+                );
+                
+                return roomParticipant ? {
+                  userId,
+                  username: roomParticipant.user.username,
+                  avatar: roomParticipant.user.avatar,
+                  role: roomParticipant.role,
+                  isActive: true
+                } : null;
+              }).filter(Boolean);
+              
+            // Broadcast updated participant list
+            socket.to(socket.currentRoom).emit('room-participants-updated', updatedParticipants);
           }
           
           socket.to(socket.currentRoom).emit('user-disconnected', {
