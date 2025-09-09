@@ -45,6 +45,9 @@ const RegisterPage = () => {
     defaultValues: {
       username: '',
       email: '',
+      firstName: '',
+      lastName: '',
+      location: '',
       password: '',
       confirmPassword: ''
     }
@@ -57,7 +60,21 @@ const RegisterPage = () => {
       setError('');
       setIsLoading(true);
       
-      const { confirmPassword, ...registrationData } = data;
+      const { confirmPassword, firstName, lastName, location, ...basicData } = data;
+      
+      // Structure the registration data with profile information
+      const registrationData = {
+        ...basicData,
+        profile: {
+          firstName: firstName || '',
+          lastName: lastName || '',
+          location: location || '',
+          bio: '',
+          website: '',
+          company: ''
+        }
+      };
+      
       const response = await authService.register(registrationData);
       login(response.user, response.token);
       navigate('/dashboard');
@@ -317,6 +334,120 @@ const RegisterPage = () => {
                         ),
                       }}
                     />
+
+                    {/* Profile Information - Optional */}
+                    <Box sx={{ 
+                      border: '1px solid rgba(255, 255, 255, 0.2)', 
+                      borderRadius: '16px', 
+                      p: 2, 
+                      mt: 1,
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)'
+                    }}>
+                      <Typography 
+                        variant="subtitle2" 
+                        sx={{ 
+                          color: 'white', 
+                          mb: 2, 
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1
+                        }}
+                      >
+                        <User size={16} />
+                        Profile Information (Optional)
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                        <TextField
+                          fullWidth
+                          label="First Name"
+                          type="text"
+                          {...register('firstName')}
+                          error={!!errors.firstName}
+                          helperText={errors.firstName?.message}
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: '12px',
+                              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                              transition: 'all 0.3s ease',
+                              '&:hover': {
+                                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: '#667eea',
+                                },
+                              },
+                              '&.Mui-focused': {
+                                backgroundColor: 'rgba(255, 255, 255, 1)',
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: '#667eea',
+                                  borderWidth: 2,
+                                },
+                              },
+                            },
+                          }}
+                        />
+                        
+                        <TextField
+                          fullWidth
+                          label="Last Name"
+                          type="text"
+                          {...register('lastName')}
+                          error={!!errors.lastName}
+                          helperText={errors.lastName?.message}
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: '12px',
+                              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                              transition: 'all 0.3s ease',
+                              '&:hover': {
+                                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: '#667eea',
+                                },
+                              },
+                              '&.Mui-focused': {
+                                backgroundColor: 'rgba(255, 255, 255, 1)',
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: '#667eea',
+                                  borderWidth: 2,
+                                },
+                              },
+                            },
+                          }}
+                        />
+                      </Box>
+                      
+                      <TextField
+                        fullWidth
+                        label="Location"
+                        type="text"
+                        placeholder="City, Country"
+                        {...register('location')}
+                        error={!!errors.location}
+                        helperText={errors.location?.message}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: '12px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#667eea',
+                              },
+                            },
+                            '&.Mui-focused': {
+                              backgroundColor: 'rgba(255, 255, 255, 1)',
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#667eea',
+                                borderWidth: 2,
+                              },
+                            },
+                          },
+                        }}
+                      />
+                    </Box>
 
                     <TextField
                       fullWidth

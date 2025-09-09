@@ -38,7 +38,8 @@ import {
   Toolbar,
   Divider,
   Badge,
-  Tooltip
+  Tooltip,
+  CircularProgress
 } from '@mui/material';
 import {
   Add,
@@ -91,6 +92,7 @@ import {
 import { useForm } from 'react-hook-form';
 import { useAuthStore } from '../store/authStore';
 import roomService from '../services/room.service';
+import authService from '../services/auth.service';
 import toast from 'react-hot-toast';
 
 const LANGUAGES = [
@@ -148,6 +150,8 @@ const DashboardPage = () => {
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   
   // Public rooms filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -167,11 +171,41 @@ const DashboardPage = () => {
     }
   });
 
+  // Profile form
+  const { 
+    register: registerProfile, 
+    handleSubmit: handleSubmitProfile, 
+    formState: { errors: profileErrors }, 
+    reset: resetProfile, 
+    setValue: setProfileValue 
+  } = useForm({
+    defaultValues: {
+      firstName: user?.profile?.firstName || '',
+      lastName: user?.profile?.lastName || '',
+      bio: user?.profile?.bio || '',
+      location: user?.profile?.location || '',
+      website: user?.profile?.website || '',
+      company: user?.profile?.company || ''
+    }
+  });
+
   const watchedValues = watch();
 
   useEffect(() => {
     loadMyRooms();
   }, []);
+
+  // Update profile form when user data changes or dialog opens
+  useEffect(() => {
+    if (profileDialogOpen && user) {
+      setProfileValue('firstName', user?.profile?.firstName || '');
+      setProfileValue('lastName', user?.profile?.lastName || '');
+      setProfileValue('bio', user?.profile?.bio || '');
+      setProfileValue('location', user?.profile?.location || '');
+      setProfileValue('website', user?.profile?.website || '');
+      setProfileValue('company', user?.profile?.company || '');
+    }
+  }, [profileDialogOpen, user, setProfileValue]);
 
   useEffect(() => {
     if (activeTab === 1) {
@@ -235,6 +269,54 @@ const DashboardPage = () => {
     } catch (error) {
       console.error('Failed to create room:', error);
       toast.error('Failed to create room. Please try again.');
+    }
+  };
+
+  const handleUpdateProfile = async (profileData) => {
+    try {
+      const updatedUser = await authService.updateProfile({
+        profile: profileData
+      });
+      updateUser(updatedUser);
+      setProfileDialogOpen(false);
+      toast.success('Profile updated successfully! 🎉');
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      toast.error('Failed to update profile. Please try again.');
+    }
+  };
+
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Basic file validation
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      toast.error('Image size must be less than 10MB');
+      return;
+    }
+
+    try {
+      setAvatarUploading(true);
+      
+      // Upload avatar through backend API (auth service will handle FormData creation)
+      const updatedUser = await authService.uploadAvatar(file);
+      updateUser(updatedUser);
+      
+      toast.success('Avatar updated successfully! ✨');
+    } catch (error) {
+      console.error('Failed to upload avatar:', error);
+      toast.error('Failed to upload avatar. Please try again.');
+    } finally {
+      setAvatarUploading(false);
+      // Clear file input
+      event.target.value = '';
     }
   };
 
@@ -436,11 +518,19 @@ const DashboardPage = () => {
 
               {isPublic && room.createdBy && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Avatar sx={{ width: 20, height: 20, fontSize: '0.7rem' }}>
-                    {room.createdBy.username?.charAt(0)?.toUpperCase()}
+                  <Avatar 
+                    src={room.createdBy.avatar}
+                    sx={{ 
+                      width: 20, 
+                      height: 20, 
+                      fontSize: '0.7rem',
+                      bgcolor: room.createdBy.avatar ? 'transparent' : '#4285f4'
+                    }}
+                  >
+                    {!room.createdBy.avatar && (room.createdBy.profile?.firstName?.charAt(0) || room.createdBy.username?.charAt(0))?.toUpperCase()}
                   </Avatar>
                   <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
-                    {room.createdBy.username}
+                    {room.createdBy.profile?.firstName || room.createdBy.username}
                   </Typography>
                 </Box>
               )}
@@ -533,13 +623,21 @@ const DashboardPage = () => {
               </IconButton>
             </Tooltip>
 
-            <Tooltip title="Account">
+            <Tooltip title={`${user?.profile?.firstName || user?.username} (${user?.email})`}>
               <IconButton 
                 onClick={(e) => setUserMenuAnchor(e.currentTarget)}
                 sx={{ color: 'rgba(255,255,255,0.8)' }}
               >
-                <Avatar sx={{ width: 32, height: 32, bgcolor: '#4285f4' }}>
-                  {user?.username?.charAt(0)?.toUpperCase()}
+                <Avatar 
+                  src={user?.avatar}
+                  sx={{ 
+                    width: 32, 
+                    height: 32, 
+                    bgcolor: user?.avatar ? 'transparent' : '#4285f4',
+                    border: user?.avatar ? '2px solid rgba(255,255,255,0.2)' : 'none'
+                  }}
+                >
+                  {!user?.avatar && (user?.profile?.firstName?.charAt(0) || user?.username?.charAt(0))?.toUpperCase()}
                 </Avatar>
               </IconButton>
             </Tooltip>
@@ -1181,6 +1279,259 @@ const DashboardPage = () => {
         </form>
       </Dialog>
 
+      {/* Profile Settings Dialog */}
+      <Dialog 
+        open={profileDialogOpen} 
+        onClose={() => setProfileDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '16px',
+            color: 'white'
+          }
+        }}
+      >
+        <DialogTitle sx={{ pb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            👤 Profile Settings
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+            Update your profile information and preferences
+          </Typography>
+        </DialogTitle>
+        
+        <form onSubmit={handleSubmitProfile(handleUpdateProfile)}>
+          <DialogContent sx={{ pb: 2 }}>
+            <Grid container spacing={3}>
+              {/* Profile Picture Section */}
+              <Grid item xs={12} sx={{ textAlign: 'center', mb: 2 }}>
+                <Box sx={{ position: 'relative', display: 'inline-block' }}>
+                  <Avatar 
+                    src={user?.avatar}
+                    sx={{ 
+                      width: 120, 
+                      height: 120, 
+                      mx: 'auto',
+                      mb: 2,
+                      bgcolor: user?.avatar ? 'transparent' : '#4285f4',
+                      border: '4px solid rgba(255,255,255,0.2)',
+                      fontSize: '2rem',
+                      cursor: avatarUploading ? 'not-allowed' : 'pointer',
+                      opacity: avatarUploading ? 0.7 : 1
+                    }}
+                  >
+                    {!user?.avatar && (user?.profile?.firstName?.charAt(0) || user?.username?.charAt(0))?.toUpperCase()}
+                  </Avatar>
+                  {avatarUploading && (
+                    <CircularProgress
+                      size={30}
+                      sx={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        marginTop: '-15px',
+                        marginLeft: '-15px',
+                        color: 'white'
+                      }}
+                    />
+                  )}
+                </Box>
+                
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  style={{ display: 'none' }}
+                  id="avatar-upload"
+                  disabled={avatarUploading}
+                />
+                
+                <Button
+                  component="label"
+                  htmlFor="avatar-upload"
+                  variant="outlined"
+                  size="small"
+                  disabled={avatarUploading}
+                  sx={{
+                    color: 'rgba(255, 255, 255, 0.8)',
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                    '&:hover': {
+                      borderColor: 'rgba(255, 255, 255, 0.5)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    '&:disabled': {
+                      color: 'rgba(255, 255, 255, 0.5)',
+                      borderColor: 'rgba(255, 255, 255, 0.2)'
+                    }
+                  }}
+                >
+                  {avatarUploading ? 'Uploading...' : '📸 Change Avatar'}
+                </Button>
+              </Grid>
+
+              {/* Name Fields */}
+              <Grid item xs={12} md={6}>
+                <TextField
+                  {...registerProfile('firstName')}
+                  label="First Name"
+                  fullWidth
+                  error={!!profileErrors.firstName}
+                  helperText={profileErrors.firstName?.message}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '12px',
+                      color: 'white'
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255, 255, 255, 0.7)'
+                    }
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  {...registerProfile('lastName')}
+                  label="Last Name"
+                  fullWidth
+                  error={!!profileErrors.lastName}
+                  helperText={profileErrors.lastName?.message}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '12px',
+                      color: 'white'
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255, 255, 255, 0.7)'
+                    }
+                  }}
+                />
+              </Grid>
+
+              {/* Bio */}
+              <Grid item xs={12}>
+                <TextField
+                  {...registerProfile('bio')}
+                  label="Bio"
+                  fullWidth
+                  multiline
+                  rows={3}
+                  placeholder="Tell us about yourself..."
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '12px',
+                      color: 'white'
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255, 255, 255, 0.7)'
+                    }
+                  }}
+                />
+              </Grid>
+
+              {/* Location */}
+              <Grid item xs={12} md={6}>
+                <TextField
+                  {...registerProfile('location')}
+                  label="Location"
+                  fullWidth
+                  placeholder="City, Country"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '12px',
+                      color: 'white'
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255, 255, 255, 0.7)'
+                    }
+                  }}
+                />
+              </Grid>
+
+              {/* Company */}
+              <Grid item xs={12} md={6}>
+                <TextField
+                  {...registerProfile('company')}
+                  label="Company"
+                  fullWidth
+                  placeholder="Your company or organization"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '12px',
+                      color: 'white'
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255, 255, 255, 0.7)'
+                    }
+                  }}
+                />
+              </Grid>
+
+              {/* Website */}
+              <Grid item xs={12}>
+                <TextField
+                  {...registerProfile('website')}
+                  label="Website"
+                  fullWidth
+                  placeholder="https://yourwebsite.com"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '12px',
+                      color: 'white'
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255, 255, 255, 0.7)'
+                    }
+                  }}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          
+          <DialogActions sx={{ p: 3, pt: 2 }}>
+            <Button 
+              onClick={() => setProfileDialogOpen(false)}
+              sx={{
+                color: 'rgba(255, 255, 255, 0.7)',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                }
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+                fontWeight: 600,
+                borderRadius: '12px',
+                textTransform: 'none',
+                px: 3,
+                py: 1,
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
+                  boxShadow: '0 8px 25px rgba(102, 126, 234, 0.3)'
+                }
+              }}
+            >
+              Save Profile
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
       {/* Room Actions Menu */}
       <Menu
         anchorEl={menuAnchorEl}
@@ -1237,7 +1588,7 @@ const DashboardPage = () => {
           }
         }}
       >
-        <MenuItem>
+        <MenuItem onClick={() => {setProfileDialogOpen(true); setUserMenuAnchor(null);}}>
           <User size={18} style={{ marginRight: 8 }} />
           Profile Settings
         </MenuItem>
