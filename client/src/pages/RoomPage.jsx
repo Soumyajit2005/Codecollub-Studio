@@ -130,6 +130,7 @@ const RoomPage = () => {
   const [dominantSpeaker, setDominantSpeaker] = useState(null);
   const [gridLayout, setGridLayout] = useState('gallery'); // 'gallery', 'speaker', 'sidebar'
   const [isPiPMode, setIsPiPMode] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null); // Store camera stream separately
   
   // Chat State
   const [messages, setMessages] = useState([]);
@@ -290,6 +291,10 @@ const RoomPage = () => {
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
+        // Store camera stream separately for PiP mode during screen sharing
+        if (!stream.getVideoTracks()[0].label.includes('screen')) {
+          setCameraStream(stream);
+        }
       },
       onRemoteStream: (stream, userId) => {
         setRemoteStreams(prev => {
@@ -304,6 +309,23 @@ const RoomPage = () => {
           newStreams.delete(userId);
           return newStreams;
         });
+      },
+      onScreenShare: (stream, isLocal = false) => {
+        if (isLocal && localVideoRef.current) {
+          // Show the shared screen in local preview
+          localVideoRef.current.srcObject = stream;
+          // Enable Picture-in-Picture mode for camera feed
+          setIsPiPMode(true);
+          toast.success('Screen sharing started - you can see your shared screen');
+        } else if (!isLocal) {
+          // Handle remote screen shares
+          toast.info(`Someone started sharing their screen`);
+        }
+      },
+      onScreenShareStopped: () => {
+        // Disable Picture-in-Picture mode
+        setIsPiPMode(false);
+        toast.info('Screen sharing stopped');
       },
       onError: (error) => {
         toast.error(error);
@@ -735,6 +757,19 @@ const RoomPage = () => {
                   <Box>
                     <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
                       {room?.name}
+                      {isScreenSharing && (
+                        <Chip
+                          size="small"
+                          icon={<Monitor size={14} />}
+                          label="Sharing Screen"
+                          sx={{
+                            ml: 2,
+                            background: 'linear-gradient(135deg, #4285f4 0%, #1976d2 100%)',
+                            color: 'white',
+                            '& .MuiChip-icon': { color: 'white' }
+                          }}
+                        />
+                      )}
                     </Typography>
                     <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
                       {participants.length} participants
@@ -836,8 +871,16 @@ const RoomPage = () => {
                       borderRadius: '12px',
                       overflow: 'hidden',
                       position: 'relative',
-                      border: dominantSpeaker === user.id ? '3px solid #4285f4' : '1px solid rgba(255,255,255,0.1)',
-                      transition: 'border 0.3s ease'
+                      border: isScreenSharing ? '3px solid #34a853' : 
+                             dominantSpeaker === user.id ? '3px solid #4285f4' : 
+                             '1px solid rgba(255,255,255,0.1)',
+                      transition: 'border 0.3s ease',
+                      animation: isScreenSharing ? 'pulse 2s infinite' : 'none',
+                      '@keyframes pulse': {
+                        '0%': { boxShadow: '0 0 0 0 rgba(52, 168, 83, 0.7)' },
+                        '70%': { boxShadow: '0 0 0 10px rgba(52, 168, 83, 0)' },
+                        '100%': { boxShadow: '0 0 0 0 rgba(52, 168, 83, 0)' }
+                      }
                     }}
                   >
                     <video
@@ -860,9 +903,14 @@ const RoomPage = () => {
                       gap: 0.5
                     }}>
                       <Typography variant="caption" sx={{ color: 'white', fontWeight: 600 }}>
-                        {user.username} (You)
+                        {user.username} (You) {isScreenSharing && '📺'}
                       </Typography>
                       {!isAudioOn && <MicOffIcon size={12} color="#ff6b6b" />}
+                      {isScreenSharing && (
+                        <Typography variant="caption" sx={{ color: '#4285f4', fontWeight: 600, ml: 0.5 }}>
+                          Sharing
+                        </Typography>
+                      )}
                     </Box>
                   </Paper>
                 </motion.div>
@@ -1308,6 +1356,7 @@ const RoomPage = () => {
                 icon: isScreenSharing ? <StopScreenShare /> : <ScreenShare />, 
                 onClick: toggleScreenShare,
                 active: isScreenSharing,
+                color: isScreenSharing ? 'success' : 'default',
                 tooltip: isScreenSharing ? 'Stop sharing' : 'Share screen'
               }
             ].map((control, index) => (
@@ -1323,10 +1372,13 @@ const RoomPage = () => {
                       width: 48,
                       height: 48,
                       bgcolor: control.color === 'error' ? '#ea4335' : 
+                               control.color === 'success' ? '#34a853' :
                                control.active ? 'rgba(255,255,255,0.1)' : 'transparent',
-                      color: control.color === 'error' ? 'white' : '#e8eaed',
+                      color: control.color === 'error' || control.color === 'success' ? 'white' : '#e8eaed',
                       '&:hover': {
-                        bgcolor: control.color === 'error' ? '#d33b2c' : 'rgba(255,255,255,0.15)'
+                        bgcolor: control.color === 'error' ? '#d33b2c' : 
+                                control.color === 'success' ? '#2d7d32' :
+                                'rgba(255,255,255,0.15)'
                       }
                     }}
                   >
@@ -1507,8 +1559,8 @@ const RoomPage = () => {
         )}
       </AnimatePresence>
 
-      {/* Picture-in-Picture Video */}
-      {isPiPMode && (
+      {/* Picture-in-Picture Video - Camera feed while screen sharing */}
+      {isPiPMode && isScreenSharing && cameraStream && (
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -1538,11 +1590,16 @@ const RoomPage = () => {
               borderRadius: '12px',
               overflow: 'hidden',
               background: '#000',
-              cursor: 'move'
+              cursor: 'move',
+              border: '2px solid #4285f4'
             }}
           >
             <video
-              ref={localVideoRef}
+              ref={(el) => {
+                if (el && cameraStream) {
+                  el.srcObject = cameraStream;
+                }
+              }}
               autoPlay
               muted
               playsInline
@@ -1564,6 +1621,19 @@ const RoomPage = () => {
               >
                 <Close size={14} />
               </IconButton>
+            </Box>
+            <Box sx={{
+              position: 'absolute',
+              bottom: 8,
+              left: 8,
+              background: 'rgba(0,0,0,0.7)',
+              borderRadius: '6px',
+              px: 1,
+              py: 0.5
+            }}>
+              <Typography variant="caption" sx={{ color: 'white', fontSize: '0.7rem' }}>
+                📹 Camera
+              </Typography>
             </Box>
           </Paper>
         </motion.div>

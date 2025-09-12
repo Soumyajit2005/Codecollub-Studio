@@ -99,8 +99,13 @@ class WebRTCService {
         this.stopScreenShare();
       });
 
+      // Show local preview of screen share
+      if (this.callbacks.onLocalStream) {
+        this.callbacks.onLocalStream(this.screenStream);
+      }
+      
       if (this.callbacks.onScreenShare) {
-        this.callbacks.onScreenShare(this.screenStream);
+        this.callbacks.onScreenShare(this.screenStream, true); // true indicates local screen share
       }
 
       return this.screenStream;
@@ -134,6 +139,11 @@ class WebRTCService {
     }
 
     this.socket.emit('screen-share-stop', this.roomId);
+
+    // Restore camera stream to local preview
+    if (this.localStream && this.callbacks.onLocalStream) {
+      this.callbacks.onLocalStream(this.localStream);
+    }
 
     if (this.callbacks.onScreenShareStopped) {
       this.callbacks.onScreenShareStopped();
