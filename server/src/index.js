@@ -24,6 +24,8 @@ import authRoutes from './routes/auth.routes.js';
 import roomRoutes from './routes/rooms.routes.js';
 import codeRoutes from './routes/code.routes.js';
 import reviewRoutes from './routes/reviews.routes.js';
+import fileSystemRoutes from './routes/fileSystem.routes.js';
+import ideRoutes from './routes/ide.routes.js';
 import socketHandler from './config/socket.js';
 
 const app = express();
@@ -61,6 +63,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/code', codeRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/files', fileSystemRoutes);
+app.use('/api/ide', ideRoutes);
 
 // Socket.io handling
 socketHandler(io);

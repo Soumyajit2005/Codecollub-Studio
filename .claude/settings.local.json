@@ -13,7 +13,11 @@
       "Bash(set PORT=3002)",
       "Bash(npm run:*)",
       "Bash(timeout 10 node:*)",
-      "Bash(exit 0)"
+      "Bash(exit 0)",
+      "WebFetch(domain:docs.jdoodle.com)",
+      "WebFetch(domain:www.jdoodle.com)",
+      "WebFetch(domain:ce.judge0.com)",
+      "WebFetch(domain:www.onlinegdb.com)"
     ],
     "deny": [],
     "ask": []

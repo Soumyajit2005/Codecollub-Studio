@@ -2,8 +2,7 @@ import mongoose from 'mongoose';
 
 const executionSchema = new mongoose.Schema({
   roomId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Room',
+    type: String, // Changed to String to support UUID format room IDs
     required: true
   },
   user: {
@@ -36,8 +35,8 @@ const executionSchema = new mongoose.Schema({
   },
   environment: {
     type: String,
-    enum: ['local', 'docker', 'sandbox'],
-    default: 'sandbox'
+    enum: ['local', 'docker', 'sandbox', 'judge0_online'],
+    default: 'judge0_online'
   },
   containerId: String,
   executionId: {

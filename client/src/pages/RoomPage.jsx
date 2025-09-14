@@ -84,6 +84,8 @@ import {
   Shrink
 } from 'lucide-react';
 import Editor from '@monaco-editor/react';
+import ModernIDE from '../components/IDE/ModernIDE';
+import OnlineGDB_IDE from '../components/IDE/OnlineGDB_IDE';
 import { useAuthStore } from '../store/authStore';
 import roomService from '../services/room.service';
 import socketService from '../services/socket.service';
@@ -99,6 +101,10 @@ const RoomPage = () => {
   const localVideoRef = useRef(null);
   const chatScrollRef = useRef(null);
   const messagesEndRef = useRef(null);
+
+  // Determine if user is admin (for now, assume all users have admin privileges)
+  // TODO: Implement proper role-based access control based on room permissions
+  const isAdmin = true;
 
   // Room State
   const [room, setRoom] = useState(null);
@@ -970,7 +976,7 @@ const RoomPage = () => {
             </motion.div>
           )}
 
-          {/* Code Editor View */}
+          {/* OnlineGDB-style IDE View */}
           {viewMode === 'code' && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -978,77 +984,13 @@ const RoomPage = () => {
               exit={{ opacity: 0, y: -20 }}
               style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
             >
-              {/* Code Toolbar */}
-              <Box sx={{ 
-                p: 2, 
-                bgcolor: 'rgba(255,255,255,0.05)', 
-                borderBottom: '1px solid rgba(255,255,255,0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2
-              }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setLanguage('javascript')}
-                  sx={{ 
-                    color: language === 'javascript' ? '#4285f4' : 'rgba(255,255,255,0.7)',
-                    borderColor: language === 'javascript' ? '#4285f4' : 'rgba(255,255,255,0.3)'
-                  }}
-                >
-                  JavaScript
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setLanguage('python')}
-                  sx={{ 
-                    color: language === 'python' ? '#4285f4' : 'rgba(255,255,255,0.7)',
-                    borderColor: language === 'python' ? '#4285f4' : 'rgba(255,255,255,0.3)'
-                  }}
-                >
-                  Python
-                </Button>
-                <Box sx={{ flexGrow: 1 }} />
-                <Button
-                  variant="contained"
-                  startIcon={isExecuting ? <CircularProgress size={16} color="inherit" /> : <Play size={16} />}
-                  onClick={executeCode}
-                  disabled={isExecuting}
-                  sx={{
-                    background: 'linear-gradient(135deg, #34a853 0%, #137333 100%)',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #2d7d32 0%, #1b5e20 100%)'
-                    }
-                  }}
-                >
-                  {isExecuting ? 'Running...' : 'Run Code'}
-                </Button>
-              </Box>
-              
-              {/* Editor */}
-              <Box sx={{ flex: 1 }}>
-                <Editor
-                  height="100%"
-                  language={language}
-                  value={code}
-                  onChange={handleCodeChange}
-                  onMount={(editor) => {
-                    editorRef.current = editor;
-                  }}
-                  theme="vs-dark"
-                  options={{
-                    minimap: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    wordWrap: 'on',
-                    fontSize: 14,
-                    fontFamily: "'Fira Code', 'Cascadia Code', monospace",
-                    lineNumbers: 'on',
-                    renderLineHighlight: 'all',
-                    automaticLayout: true
-                  }}
-                />
-              </Box>
+              <OnlineGDB_IDE
+                roomId={roomId}
+                user={user}
+                socketService={socketService}
+                isAdmin={isAdmin}
+                initialLanguage="cpp"
+              />
             </motion.div>
           )}
 
@@ -1081,19 +1023,14 @@ const RoomPage = () => {
               exit={{ opacity: 0 }}
               style={{ flex: 1, display: 'flex' }}
             >
-              {/* Left: Code Editor */}
+              {/* Left: OnlineGDB-style IDE */}
               <Box sx={{ width: '50%', borderRight: '1px solid rgba(255,255,255,0.1)' }}>
-                <Editor
-                  height="100%"
-                  language={language}
-                  value={code}
-                  onChange={handleCodeChange}
-                  theme="vs-dark"
-                  options={{
-                    minimap: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true
-                  }}
+                <OnlineGDB_IDE
+                  roomId={roomId}
+                  user={user}
+                  socketService={socketService}
+                  isAdmin={isAdmin}
+                  initialLanguage="cpp"
                 />
               </Box>
               

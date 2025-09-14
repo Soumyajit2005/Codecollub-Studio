@@ -34,12 +34,35 @@ const roomSchema = new mongoose.Schema({
     },
     role: {
       type: String,
-      enum: ['owner', 'editor', 'viewer'],
+      enum: ['owner', 'admin', 'editor', 'viewer'],
       default: 'editor'
+    },
+    permissions: {
+      canChat: { type: Boolean, default: true },
+      canCode: { type: Boolean, default: true },
+      canWhiteboard: { type: Boolean, default: true },
+      canVideo: { type: Boolean, default: true },
+      canScreenShare: { type: Boolean, default: false },
+      canExecuteCode: { type: Boolean, default: true },
+      canManageFiles: { type: Boolean, default: false },
+      canInviteUsers: { type: Boolean, default: false },
+      canKickUsers: { type: Boolean, default: false }
+    },
+    status: {
+      type: String,
+      enum: ['approved', 'pending', 'rejected'],
+      default: 'approved'
     },
     joinedAt: {
       type: Date,
       default: Date.now
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    approvedAt: {
+      type: Date
     }
   }],
   language: {
@@ -60,15 +83,49 @@ const roomSchema = new mongoose.Schema({
     lastModified: { type: Date, default: Date.now },
     version: { type: Number, default: 1 }
   },
+  joinRequests: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    requestedAt: {
+      type: Date,
+      default: Date.now
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    message: {
+      type: String,
+      trim: true
+    },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    reviewedAt: {
+      type: Date
+    },
+    reviewMessage: {
+      type: String,
+      trim: true
+    }
+  }],
   settings: {
     allowGuests: { type: Boolean, default: false },
     maxParticipants: { type: Number, default: 10 },
     autoSave: { type: Boolean, default: true },
     autoSaveInterval: { type: Number, default: 30 },
+    requireApproval: { type: Boolean, default: false },
     codeExecution: { type: Boolean, default: true },
     videoChat: { type: Boolean, default: true },
     screenShare: { type: Boolean, default: true },
-    whiteboard: { type: Boolean, default: true }
+    whiteboard: { type: Boolean, default: true },
+    fileSystem: { type: Boolean, default: true },
+    terminal: { type: Boolean, default: true }
   },
   execution: {
     environment: {
@@ -78,6 +135,115 @@ const roomSchema = new mongoose.Schema({
     },
     timeout: { type: Number, default: 30 },
     memoryLimit: { type: String, default: '128MB' }
+  },
+  fileSystem: {
+    files: [{
+      id: {
+        type: String,
+        required: true
+      },
+      name: {
+        type: String,
+        required: true
+      },
+      path: {
+        type: String,
+        required: true
+      },
+      type: {
+        type: String,
+        enum: ['file', 'folder'],
+        required: true
+      },
+      content: {
+        type: String,
+        default: ''
+      },
+      language: {
+        type: String,
+        enum: ['javascript', 'python', 'cpp', 'csharp', 'java', 'go', 'rust', 'html', 'css', 'json', 'text'],
+        default: 'text'
+      },
+      size: {
+        type: Number,
+        default: 0
+      },
+      parentId: {
+        type: String,
+        default: null
+      },
+      createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now
+      },
+      modifiedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      modifiedAt: {
+        type: Date,
+        default: Date.now
+      },
+      isActive: {
+        type: Boolean,
+        default: false
+      }
+    }],
+    activeFile: {
+      type: String,
+      default: null
+    },
+    lastSync: {
+      type: Date,
+      default: Date.now
+    }
+  },
+  ideSettings: {
+    theme: {
+      type: String,
+      enum: ['monokai', 'github', 'twilight', 'terminal', 'solarized_dark', 'solarized_light', 'textmate', 'tomorrow', 'xcode'],
+      default: 'monokai'
+    },
+    fontSize: {
+      type: Number,
+      min: 8,
+      max: 32,
+      default: 14
+    },
+    tabSize: {
+      type: Number,
+      min: 1,
+      max: 8,
+      default: 4
+    },
+    wordWrap: {
+      type: Boolean,
+      default: false
+    },
+    autoIndent: {
+      type: Boolean,
+      default: true
+    },
+    showGutter: {
+      type: Boolean,
+      default: true
+    },
+    highlightActiveLine: {
+      type: Boolean,
+      default: true
+    },
+    enableBasicAutocompletion: {
+      type: Boolean,
+      default: true
+    },
+    enableLiveAutocompletion: {
+      type: Boolean,
+      default: true
+    }
   },
   templates: [{
     name: { type: String, required: true },

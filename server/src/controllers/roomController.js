@@ -1,5 +1,6 @@
 import Room from '../models/Room.model.js';
 import { v4 as uuidv4 } from 'uuid';
+import { getDefaultPermissions } from '../middleware/permissions.middleware.js';
 
 // Generate a 6-character room code
 const generateRoomCode = () => {
@@ -45,7 +46,9 @@ export const createRoom = async (req, res) => {
       },
       participants: [{
         user: req.user._id,
-        role: 'owner'
+        role: 'owner',
+        permissions: getDefaultPermissions('owner'),
+        status: 'approved'
       }]
     });
 
@@ -188,11 +191,43 @@ export const joinRoom = async (req, res) => {
     );
 
     if (!alreadyParticipant) {
-      room.participants.push({
-        user: req.user._id,
-        role: isOwner ? 'owner' : 'editor'
-      });
-      await room.save();
+      const role = isOwner ? 'owner' : 'editor';
+      const needsApproval = room.settings.requireApproval && !isOwner;
+      
+      if (needsApproval) {
+        // Add to join requests instead of participants
+        const existingRequest = room.joinRequests.find(
+          r => r.user.toString() === req.user._id.toString() && r.status === 'pending'
+        );
+        
+        if (!existingRequest) {
+          room.joinRequests.push({
+            user: req.user._id,
+            status: 'pending',
+            message: req.body.message || ''
+          });
+          await room.save();
+          
+          return res.json({ 
+            message: 'Join request submitted. Waiting for approval.',
+            requiresApproval: true 
+          });
+        } else {
+          return res.json({ 
+            message: 'Join request already pending approval.',
+            requiresApproval: true 
+          });
+        }
+      } else {
+        // Direct join for public rooms or when approval not required
+        room.participants.push({
+          user: req.user._id,
+          role: role,
+          permissions: getDefaultPermissions(role),
+          status: 'approved'
+        });
+        await room.save();
+      }
     }
 
     await room.populate('owner participants.user', 'username avatar');
@@ -217,11 +252,41 @@ export const joinRoomByCode = async (req, res) => {
     );
 
     if (!alreadyParticipant) {
-      room.participants.push({
-        user: req.user._id,
-        role: 'editor'
-      });
-      await room.save();
+      const needsApproval = room.settings.requireApproval;
+      
+      if (needsApproval) {
+        // Add to join requests instead of participants
+        const existingRequest = room.joinRequests.find(
+          r => r.user.toString() === req.user._id.toString() && r.status === 'pending'
+        );
+        
+        if (!existingRequest) {
+          room.joinRequests.push({
+            user: req.user._id,
+            status: 'pending',
+            message: req.body.message || ''
+          });
+          await room.save();
+          
+          return res.json({ 
+            message: 'Join request submitted. Waiting for approval.',
+            requiresApproval: true 
+          });
+        } else {
+          return res.json({ 
+            message: 'Join request already pending approval.',
+            requiresApproval: true 
+          });
+        }
+      } else {
+        room.participants.push({
+          user: req.user._id,
+          role: 'editor',
+          permissions: getDefaultPermissions('editor'),
+          status: 'approved'
+        });
+        await room.save();
+      }
     }
 
     await room.populate('owner participants.user', 'username avatar');
@@ -401,5 +466,281 @@ export const updateCode = async (req, res) => {
   } catch (error) {
     console.error('Update code error:', error);
     res.status(500).json({ error: 'Failed to update code' });
+  }
+};
+
+// Join Request Management
+export const getJoinRequests = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    
+    const room = await Room.findOne({
+      $or: [{ roomId }, { roomCode: roomId }]
+    }).populate('joinRequests.user', 'username avatar email');
+
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Only owner and admins can view join requests
+    const isOwner = room.owner.toString() === req.user._id.toString();
+    const isAdmin = room.participants.some(p => 
+      p.user.toString() === req.user._id.toString() && p.role === 'admin'
+    );
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const pendingRequests = room.joinRequests.filter(r => r.status === 'pending');
+    
+    res.json({ joinRequests: pendingRequests });
+  } catch (error) {
+    console.error('Get join requests error:', error);
+    res.status(500).json({ error: 'Failed to fetch join requests' });
+  }
+};
+
+export const approveJoinRequest = async (req, res) => {
+  try {
+    const { roomId, requestId } = req.params;
+    const { role = 'editor', customPermissions } = req.body;
+    
+    const room = await Room.findOne({
+      $or: [{ roomId }, { roomCode: roomId }]
+    }).populate('joinRequests.user', 'username avatar');
+
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Only owner and admins can approve requests
+    const isOwner = room.owner.toString() === req.user._id.toString();
+    const isAdmin = room.participants.some(p => 
+      p.user.toString() === req.user._id.toString() && p.role === 'admin'
+    );
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const requestIndex = room.joinRequests.findIndex(r => r._id.toString() === requestId);
+    if (requestIndex === -1) {
+      return res.status(404).json({ error: 'Join request not found' });
+    }
+
+    const request = room.joinRequests[requestIndex];
+    if (request.status !== 'pending') {
+      return res.status(400).json({ error: 'Request already processed' });
+    }
+
+    // Update request status
+    request.status = 'approved';
+    request.reviewedBy = req.user._id;
+    request.reviewedAt = new Date();
+
+    // Add user as participant
+    const permissions = customPermissions || getDefaultPermissions(role);
+    room.participants.push({
+      user: request.user._id,
+      role: role,
+      permissions: permissions,
+      status: 'approved',
+      approvedBy: req.user._id,
+      approvedAt: new Date()
+    });
+
+    await room.save();
+    await room.populate('participants.user', 'username avatar');
+
+    res.json({ 
+      message: 'Join request approved successfully',
+      participant: room.participants[room.participants.length - 1]
+    });
+  } catch (error) {
+    console.error('Approve join request error:', error);
+    res.status(500).json({ error: 'Failed to approve join request' });
+  }
+};
+
+export const rejectJoinRequest = async (req, res) => {
+  try {
+    const { roomId, requestId } = req.params;
+    const { message } = req.body;
+    
+    const room = await Room.findOne({
+      $or: [{ roomId }, { roomCode: roomId }]
+    });
+
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Only owner and admins can reject requests
+    const isOwner = room.owner.toString() === req.user._id.toString();
+    const isAdmin = room.participants.some(p => 
+      p.user.toString() === req.user._id.toString() && p.role === 'admin'
+    );
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const requestIndex = room.joinRequests.findIndex(r => r._id.toString() === requestId);
+    if (requestIndex === -1) {
+      return res.status(404).json({ error: 'Join request not found' });
+    }
+
+    const request = room.joinRequests[requestIndex];
+    if (request.status !== 'pending') {
+      return res.status(400).json({ error: 'Request already processed' });
+    }
+
+    // Update request status
+    request.status = 'rejected';
+    request.reviewedBy = req.user._id;
+    request.reviewedAt = new Date();
+    request.reviewMessage = message || '';
+
+    await room.save();
+
+    res.json({ message: 'Join request rejected successfully' });
+  } catch (error) {
+    console.error('Reject join request error:', error);
+    res.status(500).json({ error: 'Failed to reject join request' });
+  }
+};
+
+// Participant Management
+export const updateParticipantPermissions = async (req, res) => {
+  try {
+    const { roomId, participantId } = req.params;
+    const { permissions, role } = req.body;
+    
+    const room = await Room.findOne({
+      $or: [{ roomId }, { roomCode: roomId }]
+    });
+
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Only owner and admins can update permissions
+    const isOwner = room.owner.toString() === req.user._id.toString();
+    const isAdmin = room.participants.some(p => 
+      p.user.toString() === req.user._id.toString() && p.role === 'admin'
+    );
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const participantIndex = room.participants.findIndex(p => p._id.toString() === participantId);
+    if (participantIndex === -1) {
+      return res.status(404).json({ error: 'Participant not found' });
+    }
+
+    const participant = room.participants[participantIndex];
+    
+    // Update permissions
+    if (permissions) {
+      participant.permissions = { ...participant.permissions, ...permissions };
+    }
+    
+    // Update role
+    if (role) {
+      participant.role = role;
+      // Apply default permissions for new role if not explicitly provided
+      if (!permissions) {
+        participant.permissions = getDefaultPermissions(role);
+      }
+    }
+
+    await room.save();
+    await room.populate('participants.user', 'username avatar');
+
+    res.json({ 
+      message: 'Participant permissions updated successfully',
+      participant: room.participants[participantIndex]
+    });
+  } catch (error) {
+    console.error('Update participant permissions error:', error);
+    res.status(500).json({ error: 'Failed to update participant permissions' });
+  }
+};
+
+export const removeParticipant = async (req, res) => {
+  try {
+    const { roomId, participantId } = req.params;
+    
+    const room = await Room.findOne({
+      $or: [{ roomId }, { roomCode: roomId }]
+    });
+
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Only owner and admins with kick permission can remove participants
+    const isOwner = room.owner.toString() === req.user._id.toString();
+    const userParticipant = room.participants.find(p => 
+      p.user.toString() === req.user._id.toString()
+    );
+    const canKick = userParticipant?.permissions?.canKickUsers || false;
+
+    if (!isOwner && !canKick) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const participantIndex = room.participants.findIndex(p => p._id.toString() === participantId);
+    if (participantIndex === -1) {
+      return res.status(404).json({ error: 'Participant not found' });
+    }
+
+    // Can't remove the owner
+    if (room.participants[participantIndex].role === 'owner') {
+      return res.status(403).json({ error: 'Cannot remove room owner' });
+    }
+
+    room.participants.splice(participantIndex, 1);
+    await room.save();
+
+    res.json({ message: 'Participant removed successfully' });
+  } catch (error) {
+    console.error('Remove participant error:', error);
+    res.status(500).json({ error: 'Failed to remove participant' });
+  }
+};
+
+export const updateRoomSettings = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { settings } = req.body;
+    
+    const room = await Room.findOne({
+      $or: [{ roomId }, { roomCode: roomId }]
+    });
+
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Only owner can update room settings
+    if (room.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Only room owner can update settings' });
+    }
+
+    room.settings = { ...room.settings, ...settings };
+    room.lastModified = new Date();
+    
+    await room.save();
+
+    res.json({ 
+      message: 'Room settings updated successfully',
+      settings: room.settings
+    });
+  } catch (error) {
+    console.error('Update room settings error:', error);
+    res.status(500).json({ error: 'Failed to update room settings' });
   }
 };

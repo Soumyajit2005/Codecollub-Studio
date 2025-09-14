@@ -13,6 +13,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
     "child_process": "^1.0.2",
     "cloudinary": "^2.7.0",
@@ -25,12 +26,15 @@
     "express-validator": "^7.2.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "memfs": "^4.39.0",
     "mongoose": "^8.18.0",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "simple-peer": "^9.11.1",
     "socket.io": "^4.8.1",
+    "unionfs": "^4.6.0",
     "uuid": "^11.1.0",
+    "ws": "^8.18.3",
     "y-monaco": "^0.1.6",
     "y-websocket": "^3.0.0",
     "yjs": "^13.6.27"

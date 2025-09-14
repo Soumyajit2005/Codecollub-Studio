@@ -21,7 +21,7 @@ export default defineConfig({
     global: 'globalThis',
   },
   optimizeDeps: {
-    include: ['simple-peer']
+    include: ['simple-peer', 'ace-builds']
   },
   resolve: {
     alias: {

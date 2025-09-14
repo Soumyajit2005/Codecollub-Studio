@@ -3,6 +3,8 @@ import Room from '../models/Room.model.js';
 import Session from '../models/Session.model.js';
 import User from '../models/User.model.js';
 import CodeExecutionService from '../services/codeExecution.service.js';
+import EnhancedCodeExecutionService from '../services/enhancedCodeExecution.service.js';
+import virtualFileSystemService from '../services/virtualFileSystem.service.js';
 import * as Y from 'yjs';
 
 export default (io) => {
@@ -156,7 +158,7 @@ export default (io) => {
 
         socket.emit('execution-started', { status: 'running' });
         
-        const result = await CodeExecutionService.executeCode(
+        const result = await EnhancedCodeExecutionService.executeCode(
           room._id, socket.userId, language, code, input
         );
         
@@ -427,6 +429,79 @@ export default (io) => {
       }
     });
 
+    // File system events
+    socket.on('file-content-changed', async (data) => {
+      try {
+        const { roomId, fileId, content } = data;
+        
+        // Try both UUID and ObjectId formats
+        let room = await Room.findOne({ roomId });
+        if (!room && roomId.match(/^[0-9a-fA-F]{24}$/)) {
+          room = await Room.findById(roomId);
+        }
+        
+        if (room) {
+          const file = room.fileSystem.files.find(f => f.id === fileId);
+          if (file) {
+            file.content = content;
+            file.modifiedBy = socket.userId;
+            file.modifiedAt = new Date();
+            file.size = content.length;
+            room.fileSystem.lastSync = new Date();
+            await room.save();
+          }
+        }
+        
+        socket.to(roomId).emit('file-content-changed', {
+          fileId,
+          content,
+          userId: socket.userId,
+          username: socket.user.username,
+          timestamp: new Date()
+        });
+      } catch (error) {
+        console.error('File content change error:', error);
+      }
+    });
+
+    socket.on('active-file-changed', (data) => {
+      const { roomId, fileId, fileName } = data;
+      socket.to(roomId).emit('active-file-changed', {
+        fileId,
+        fileName,
+        userId: socket.userId,
+        username: socket.user.username
+      });
+    });
+
+    socket.on('file-tree-updated', (data) => {
+      const { roomId } = data;
+      socket.to(roomId).emit('file-tree-updated', {
+        userId: socket.userId,
+        username: socket.user.username,
+        timestamp: new Date()
+      });
+    });
+
+    // Join request events
+    socket.on('join-request-submitted', (data) => {
+      const { roomId, request } = data;
+      socket.to(roomId).emit('join-request-received', {
+        request,
+        timestamp: new Date()
+      });
+    });
+
+    socket.on('participant-permissions-updated', (data) => {
+      const { roomId, participantId, permissions } = data;
+      socket.to(roomId).emit('participant-updated', {
+        participantId,
+        permissions,
+        updatedBy: socket.userId,
+        timestamp: new Date()
+      });
+    });
+
     // Presence and activity tracking
     socket.on('user-activity', async (data) => {
       try {
@@ -465,12 +540,112 @@ export default (io) => {
         console.error('User activity error:', error);
       }
     });
+
+    // Virtual File System Events
+    socket.on('file-created', (data) => {
+      const { roomId, path, content, isDirectory } = data;
+      socket.to(roomId).emit('file-created', {
+        path,
+        content,
+        isDirectory,
+        userId: socket.userId,
+        username: socket.user.username,
+        timestamp: new Date()
+      });
+    });
+
+    socket.on('file-updated', (data) => {
+      const { roomId, path, content } = data;
+      socket.to(roomId).emit('file-updated', {
+        path,
+        content,
+        userId: socket.userId,
+        username: socket.user.username,
+        timestamp: new Date()
+      });
+    });
+
+    socket.on('file-deleted', (data) => {
+      const { roomId, path } = data;
+      socket.to(roomId).emit('file-deleted', {
+        path,
+        userId: socket.userId,
+        username: socket.user.username,
+        timestamp: new Date()
+      });
+    });
+
+    socket.on('file-renamed', (data) => {
+      const { roomId, oldPath, newPath } = data;
+      socket.to(roomId).emit('file-renamed', {
+        oldPath,
+        newPath,
+        userId: socket.userId,
+        username: socket.user.username,
+        timestamp: new Date()
+      });
+    });
+
+    socket.on('language-changed', (data) => {
+      const { roomId, language } = data;
+      socket.to(roomId).emit('language-changed', {
+        language,
+        userId: socket.userId,
+        username: socket.user.username,
+        timestamp: new Date()
+      });
+    });
+
+    socket.on('code-execution-result', (data) => {
+      const { roomId, result } = data;
+      socket.to(roomId).emit('code-execution-result', {
+        result,
+        userId: socket.userId,
+        username: socket.user.username,
+        timestamp: new Date()
+      });
+    });
+
+    // Virtual File System subscription management
+    socket.on('subscribe-to-file-system', async (roomId) => {
+      try {
+        const fs = virtualFileSystemService.getFileSystem(roomId);
+        
+        // Subscribe to real-time file system events
+        const unsubscribe = fs.subscribe((event, data) => {
+          socket.emit('virtual-fs-event', {
+            event,
+            data,
+            timestamp: new Date()
+          });
+        });
+        
+        // Store unsubscribe function for cleanup
+        socket.vfsUnsubscribe = unsubscribe;
+        
+      } catch (error) {
+        console.error('VFS subscription error:', error);
+      }
+    });
+
+    socket.on('unsubscribe-from-file-system', () => {
+      if (socket.vfsUnsubscribe) {
+        socket.vfsUnsubscribe();
+        socket.vfsUnsubscribe = null;
+      }
+    });
     
     // Disconnect with cleanup
     socket.on('disconnect', async () => {
       try {
         console.log(`🔌❌ User ${socket.user.username} (ID: ${socket.userId}) disconnected`);
         activeUsers.delete(socket.userId);
+        
+        // Clean up virtual file system subscription
+        if (socket.vfsUnsubscribe) {
+          socket.vfsUnsubscribe();
+          socket.vfsUnsubscribe = null;
+        }
         
         // Update user status
         await User.findByIdAndUpdate(socket.userId, {

@@ -1,76 +1,156 @@
-import Docker from 'dockerode';
 import { v4 as uuidv4 } from 'uuid';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import fs from 'fs/promises';
-import path from 'path';
 import Execution from '../models/Execution.model.js';
+import OnlineCodeExecutionService from './onlineCodeExecution.service.js';
 
-const execAsync = promisify(exec);
-const docker = new Docker();
+// Language templates
+const LANGUAGE_TEMPLATES = {
+  javascript: `// Welcome to CodeCollab Studio!
+console.log("Hello, World! 🚀");
 
-const LANGUAGE_CONFIGS = {
-  javascript: {
-    image: 'node:18-alpine',
-    fileExtension: '.js',
-    runCommand: 'node',
-    timeout: 30000,
-    memoryLimit: '128m'
-  },
-  typescript: {
-    image: 'node:18-alpine',
-    fileExtension: '.ts',
-    runCommand: 'npx ts-node',
-    timeout: 30000,
-    memoryLimit: '128m',
-    setup: 'npm install -g typescript ts-node'
-  },
-  python: {
-    image: 'python:3.11-alpine',
-    fileExtension: '.py',
-    runCommand: 'python',
-    timeout: 30000,
-    memoryLimit: '128m'
-  },
-  cpp: {
-    image: 'gcc:11-alpine',
-    fileExtension: '.cpp',
-    compileCommand: 'g++ -o program',
-    runCommand: './program',
-    timeout: 45000,
-    memoryLimit: '256m'
-  },
-  csharp: {
-    image: 'mcr.microsoft.com/dotnet/sdk:7.0-alpine',
-    fileExtension: '.cs',
-    compileCommand: 'dotnet new console --force && cp code.cs Program.cs && dotnet build',
-    runCommand: 'dotnet run',
-    timeout: 45000,
-    memoryLimit: '256m'
-  },
-  java: {
-    image: 'openjdk:17-alpine',
-    fileExtension: '.java',
-    compileCommand: 'javac',
-    runCommand: 'java',
-    timeout: 45000,
-    memoryLimit: '256m'
-  },
-  go: {
-    image: 'golang:1.21-alpine',
-    fileExtension: '.go',
-    runCommand: 'go run',
-    timeout: 30000,
-    memoryLimit: '128m'
-  },
-  rust: {
-    image: 'rust:1.70-alpine',
-    fileExtension: '.rs',
-    compileCommand: 'rustc -o program',
-    runCommand: './program',
-    timeout: 60000,
-    memoryLimit: '256m'
-  }
+// Try some JavaScript here...
+const numbers = [1, 2, 3, 4, 5];
+const doubled = numbers.map(n => n * 2);
+console.log("Doubled:", doubled);`,
+
+  python: `# Welcome to CodeCollab Studio!
+print("Hello, World! 🚀")
+
+# Try some Python here...
+numbers = [1, 2, 3, 4, 5]
+doubled = [n * 2 for n in numbers]
+print("Doubled:", doubled)`,
+
+  java: `// Welcome to CodeCollab Studio!
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, World! 🚀");
+        
+        // Try some Java here...
+        int[] numbers = {1, 2, 3, 4, 5};
+        System.out.print("Doubled: ");
+        for (int num : numbers) {
+            System.out.print(num * 2 + " ");
+        }
+        System.out.println();
+    }
+}`,
+
+  cpp: `// Welcome to CodeCollab Studio!
+#include <iostream>
+#include <vector>
+
+int main() {
+    std::cout << "Hello, World! 🚀" << std::endl;
+    
+    // Try some C++ here...
+    std::vector<int> numbers = {1, 2, 3, 4, 5};
+    std::cout << "Doubled: ";
+    for (int num : numbers) {
+        std::cout << num * 2 << " ";
+    }
+    std::cout << std::endl;
+    
+    return 0;
+}`,
+
+  c: `// Welcome to CodeCollab Studio!
+#include <stdio.h>
+
+int main() {
+    printf("Hello, World! 🚀\\n");
+    
+    // Try some C here...
+    int numbers[] = {1, 2, 3, 4, 5};
+    int size = sizeof(numbers) / sizeof(numbers[0]);
+    
+    printf("Doubled: ");
+    for (int i = 0; i < size; i++) {
+        printf("%d ", numbers[i] * 2);
+    }
+    printf("\\n");
+    
+    return 0;
+}`,
+
+  csharp: `// Welcome to CodeCollab Studio!
+using System;
+
+class Program {
+    static void Main() {
+        Console.WriteLine("Hello, World! 🚀");
+        
+        // Try some C# here...
+        int[] numbers = {1, 2, 3, 4, 5};
+        Console.Write("Doubled: ");
+        foreach (int num in numbers) {
+            Console.Write(num * 2 + " ");
+        }
+        Console.WriteLine();
+    }
+}`,
+
+  go: `// Welcome to CodeCollab Studio!
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello, World! 🚀")
+    
+    // Try some Go here...
+    numbers := []int{1, 2, 3, 4, 5}
+    fmt.Print("Doubled: ")
+    for _, num := range numbers {
+        fmt.Print(num * 2, " ")
+    }
+    fmt.Println()
+}`,
+
+  rust: `// Welcome to CodeCollab Studio!
+fn main() {
+    println!("Hello, World! 🚀");
+    
+    // Try some Rust here...
+    let numbers = vec![1, 2, 3, 4, 5];
+    let doubled: Vec<i32> = numbers.iter().map(|x| x * 2).collect();
+    println!("Doubled: {:?}", doubled);
+}`,
+
+  ruby: `# Welcome to CodeCollab Studio!
+puts "Hello, World! 🚀"
+
+# Try some Ruby here...
+numbers = [1, 2, 3, 4, 5]
+doubled = numbers.map { |n| n * 2 }
+puts "Doubled: #{doubled}"`,
+
+  php: `<?php
+// Welcome to CodeCollab Studio!
+echo "Hello, World! 🚀\\n";
+
+// Try some PHP here...
+$numbers = [1, 2, 3, 4, 5];
+$doubled = array_map(function($n) { return $n * 2; }, $numbers);
+echo "Doubled: " . implode(" ", $doubled) . "\\n";
+?>`
+};
+
+// Map our language names to Judge0 language IDs
+const LANGUAGE_ID_MAP = {
+  'javascript': 63, // JavaScript (Node.js 14.15.4)
+  'python': 71,     // Python (3.8.1)
+  'java': 62,       // Java (OpenJDK 13.0.1)
+  'cpp': 76,        // C++ (Clang 7.0.1)
+  'c': 75,          // C (Clang 7.0.1)
+  'csharp': 51,     // C# (Mono 6.6.0.161)
+  'go': 60,         // Go (1.13.5)
+  'rust': 73,       // Rust (1.40.0)
+  'ruby': 72,       // Ruby (2.7.0)
+  'php': 68,        // PHP (7.4.1)
+  'swift': 83,      // Swift (5.2.3)
+  'kotlin': 78      // Kotlin (1.3.70)
 };
 
 class CodeExecutionService {
@@ -78,6 +158,9 @@ class CodeExecutionService {
     const executionId = uuidv4();
     
     try {
+      console.log(`Executing code for user ${userId} in room ${roomId}, language: ${language}`);
+      
+      // Save execution record
       const execution = new Execution({
         roomId,
         user: userId,
@@ -85,236 +168,248 @@ class CodeExecutionService {
         code,
         input,
         executionId,
-        environment: 'docker'
+        environment: 'judge0_online'
       });
       await execution.save();
 
-      const config = LANGUAGE_CONFIGS[language];
-      if (!config) {
-        throw new Error(`Unsupported language: ${language}`);
+      // Get Judge0 language ID
+      const languageId = LANGUAGE_ID_MAP[language];
+      if (!languageId) {
+        throw new Error(`Unsupported language: ${language}. Supported languages: ${Object.keys(LANGUAGE_ID_MAP).join(', ')}`);
       }
 
-      const result = process.env.DOCKER_ENABLED === 'true' 
-        ? await this.runInDocker(executionId, config, code, input)
-        : await this.runLocally(executionId, config, code, input);
+      console.log(`Using Judge0 language ID ${languageId} for ${language}`);
+
+      // Execute code using Judge0 online service
+      const startTime = Date.now();
+      const result = await OnlineCodeExecutionService.executeCode(
+        languageId,
+        code,
+        input,
+        15, // 15 second time limit
+        128000 // 128MB memory limit
+      );
       
+      const executionTime = Date.now() - startTime;
+      console.log(`Execution completed in ${executionTime}ms, result:`, result);
+
+      // Update execution record
       await Execution.findOneAndUpdate(
         { executionId },
         {
-          output: result.output,
-          status: result.status,
-          completedAt: new Date()
+          output: {
+            stdout: result.output.stdout,
+            stderr: result.output.stderr,
+            exitCode: result.output.exitCode,
+            executionTime: result.output.executionTime * 1000, // Convert to milliseconds
+            memoryUsed: `${result.output.memoryUsage} KB`
+          },
+          status: result.success ? 'completed' : 'failed',
+          completedAt: new Date(),
+          rawResult: result.raw // Store raw Judge0 response for debugging
         }
       );
 
-      return { executionId, ...result };
+      return {
+        executionId,
+        success: result.success,
+        status: result.success ? 'completed' : 'failed',
+        statusDescription: result.statusDescription,
+        output: {
+          stdout: result.output.stdout,
+          stderr: result.output.stderr,
+          exitCode: result.output.exitCode,
+          executionTime: Math.round(result.output.executionTime * 1000), // Convert to milliseconds
+          memoryUsed: `${result.output.memoryUsage} KB`
+        }
+      };
+
     } catch (error) {
       console.error('Code execution error:', error);
       
+      // Update execution record with error
       await Execution.findOneAndUpdate(
         { executionId },
         {
-          output: { error: error.message },
+          output: { 
+            error: error.message,
+            stderr: error.message,
+            stdout: '',
+            exitCode: 1,
+            executionTime: 0,
+            memoryUsed: '0 KB'
+          },
           status: 'failed',
           completedAt: new Date()
         }
       );
 
-      throw error;
-    }
-  }
-
-  async runInDocker(executionId, config, code, input) {
-    const containerName = `code-exec-${executionId}`;
-    let container;
-
-    try {
-      const startTime = Date.now();
-      
-      container = await docker.createContainer({
-        Image: config.image,
-        name: containerName,
-        WorkingDir: '/app',
-        Env: ['NODE_ENV=production'],
-        HostConfig: {
-          Memory: this.parseMemoryLimit(config.memoryLimit),
-          CpuQuota: 50000,
-          CpuPeriod: 100000,
-          NetworkMode: 'none',
-          ReadonlyRootfs: false,
-          Tmpfs: {
-            '/tmp': 'rw,noexec,nosuid,size=10m'
-          }
-        },
-        AttachStdout: true,
-        AttachStderr: true,
-        Tty: false
-      });
-
-      await container.start();
-
-      const filename = `code${config.fileExtension}`;
-      await this.writeFileToContainer(container, filename, code);
-
-      if (input) {
-        await this.writeFileToContainer(container, 'input.txt', input);
-      }
-
-      let commands = [];
-      
-      if (config.setup) {
-        commands.push(config.setup);
-      }
-      
-      if (config.compileCommand) {
-        if (language === 'java') {
-          const className = this.extractJavaClassName(code) || 'Main';
-          commands.push(`${config.compileCommand} ${filename}`);
-          commands.push(`${config.runCommand} ${className} ${input ? '< input.txt' : ''}`);
-        } else if (language === 'cpp' || language === 'rust') {
-          commands.push(`${config.compileCommand} ${filename}`);
-          commands.push(`${config.runCommand} ${input ? '< input.txt' : ''}`);
-        } else {
-          commands.push(config.compileCommand);
-          commands.push(`${config.runCommand} ${input ? '< input.txt' : ''}`);
-        }
-      } else {
-        commands.push(`${config.runCommand} ${filename} ${input ? '< input.txt' : ''}`);
-      }
-
-      const commandString = commands.join(' && ');
-      const exec = await container.exec({
-        Cmd: ['sh', '-c', commandString],
-        AttachStdout: true,
-        AttachStderr: true
-      });
-
-      const stream = await exec.start({ Detach: false, Tty: false });
-      
-      const output = await Promise.race([
-        this.streamToString(stream),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Execution timeout')), config.timeout)
-        )
-      ]);
-
-      const endTime = Date.now();
-      const executionTime = endTime - startTime;
-
-      const inspectResult = await exec.inspect();
-      const exitCode = inspectResult.ExitCode;
-
-      const stats = await container.stats({ stream: false });
-      const memoryUsed = this.formatBytes(stats.memory_stats?.usage || 0);
-
       return {
-        output: {
-          stdout: output.stdout || '',
-          stderr: output.stderr || '',
-          exitCode,
-          executionTime,
-          memoryUsed
-        },
-        status: exitCode === 0 ? 'completed' : 'failed'
-      };
-
-    } catch (error) {
-      return {
+        executionId,
+        success: false,
+        status: 'failed',
+        statusDescription: 'Execution Failed',
         output: {
           error: error.message,
+          stderr: error.message,
+          stdout: '',
+          exitCode: 1,
           executionTime: 0,
-          memoryUsed: '0 B'
-        },
-        status: error.message.includes('timeout') ? 'timeout' : 'failed'
-      };
-    } finally {
-      if (container) {
-        try {
-          await container.kill();
-          await container.remove();
-        } catch (cleanupError) {
-          console.error('Container cleanup error:', cleanupError);
+          memoryUsed: '0 KB'
         }
-      }
+      };
     }
   }
 
-  async writeFileToContainer(container, filename, content) {
-    const tarStream = await this.createTarStream(filename, content);
-    await container.putArchive(tarStream, { path: '/app' });
+  // Get supported languages from Judge0
+  async getSupportedLanguages() {
+    try {
+      return await OnlineCodeExecutionService.getSupportedLanguages();
+    } catch (error) {
+      console.error('Failed to get supported languages:', error);
+      
+      // Return fallback list based on our language templates
+      return Object.entries(LANGUAGE_ID_MAP).map(([key, id]) => ({
+        id,
+        name: key.charAt(0).toUpperCase() + key.slice(1),
+        fullName: `${key.charAt(0).toUpperCase() + key.slice(1)} (Judge0)`
+      }));
+    }
   }
 
-  createTarStream(filename, content) {
-    return new Promise((resolve, reject) => {
-      const { Writable } = require('stream');
-      const tar = require('tar-stream');
-      
-      const pack = tar.pack();
-      const chunks = [];
-      
-      const writable = new Writable({
-        write(chunk, encoding, callback) {
-          chunks.push(chunk);
-          callback();
+  // Get language template/boilerplate code
+  getLanguageTemplate(language) {
+    try {
+      // Import templates dynamically to avoid import issues
+      const templates = {
+        javascript: `// Welcome to CodeCollab Studio!
+console.log("Hello, World! 🚀");
+
+// Try some code here...
+const numbers = [1, 2, 3, 4, 5];
+const doubled = numbers.map(n => n * 2);
+console.log("Doubled:", doubled);`,
+        
+        python: `# Welcome to CodeCollab Studio!
+print("Hello, World! 🚀")
+
+# Try some code here...
+numbers = [1, 2, 3, 4, 5]
+doubled = [n * 2 for n in numbers]
+print("Doubled:", doubled)`,
+        
+        java: `// Welcome to CodeCollab Studio!
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, World! 🚀");
+        
+        // Try some code here...
+        int[] numbers = {1, 2, 3, 4, 5};
+        for (int num : numbers) {
+            System.out.print(num * 2 + " ");
         }
-      });
-      
-      pack.pipe(writable);
-      
-      pack.entry({ name: filename }, content, (err) => {
-        if (err) return reject(err);
-        pack.finalize();
-      });
-      
-      writable.on('finish', () => {
-        resolve(Buffer.concat(chunks));
-      });
-    });
-  }
+    }
+}`,
 
-  streamToString(stream) {
-    return new Promise((resolve, reject) => {
-      let stdout = '';
-      let stderr = '';
-      
-      stream.on('data', (chunk) => {
-        const data = chunk.toString();
-        if (chunk[0] === 1) {
-          stdout += data.substring(8);
-        } else if (chunk[0] === 2) {
-          stderr += data.substring(8);
-        }
-      });
-      
-      stream.on('end', () => {
-        resolve({ stdout, stderr });
-      });
-      
-      stream.on('error', reject);
-    });
-  }
+        cpp: `// Welcome to CodeCollab Studio!
+#include <iostream>
+#include <vector>
 
-  extractJavaClassName(code) {
-    const match = code.match(/public\s+class\s+(\w+)/);
-    return match ? match[1] : null;
-  }
-
-  parseMemoryLimit(limit) {
-    const units = { 'k': 1024, 'm': 1024 * 1024, 'g': 1024 * 1024 * 1024 };
-    const match = limit.toLowerCase().match(/^(\d+)([kmg]?)b?$/);
-    if (!match) return 128 * 1024 * 1024;
+int main() {
+    std::cout << "Hello, World! 🚀" << std::endl;
     
-    const value = parseInt(match[1]);
-    const unit = match[2] || '';
-    return value * (units[unit] || 1);
+    // Try some code here...
+    std::vector<int> numbers = {1, 2, 3, 4, 5};
+    for (int num : numbers) {
+        std::cout << num * 2 << " ";
+    }
+    
+    return 0;
+}`,
+
+        c: `// Welcome to CodeCollab Studio!
+#include <stdio.h>
+
+int main() {
+    printf("Hello, World! 🚀\\n");
+    
+    // Try some code here...
+    int numbers[] = {1, 2, 3, 4, 5};
+    int size = sizeof(numbers) / sizeof(numbers[0]);
+    
+    for (int i = 0; i < size; i++) {
+        printf("%d ", numbers[i] * 2);
+    }
+    
+    return 0;
+}`,
+
+        csharp: `// Welcome to CodeCollab Studio!
+using System;
+
+class Program {
+    static void Main() {
+        Console.WriteLine("Hello, World! 🚀");
+        
+        // Try some code here...
+        int[] numbers = {1, 2, 3, 4, 5};
+        foreach (int num in numbers) {
+            Console.Write(num * 2 + " ");
+        }
+    }
+}`,
+
+        go: `// Welcome to CodeCollab Studio!
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello, World! 🚀")
+    
+    // Try some code here...
+    numbers := []int{1, 2, 3, 4, 5}
+    for _, num := range numbers {
+        fmt.Print(num * 2, " ")
+    }
+}`,
+
+        rust: `// Welcome to CodeCollab Studio!
+fn main() {
+    println!("Hello, World! 🚀");
+    
+    // Try some code here...
+    let numbers = vec![1, 2, 3, 4, 5];
+    let doubled: Vec<i32> = numbers.iter().map(|x| x * 2).collect();
+    println!("{:?}", doubled);
+}`,
+
+        ruby: `# Welcome to CodeCollab Studio!
+puts "Hello, World! 🚀"
+
+# Try some code here...
+numbers = [1, 2, 3, 4, 5]
+doubled = numbers.map { |n| n * 2 }
+puts "Doubled: #{doubled}"`
+      };
+
+      return templates[language] || `// Welcome to CodeCollab Studio!
+// ${language.charAt(0).toUpperCase() + language.slice(1)} code here...
+`;
+    } catch (error) {
+      console.error('Error getting language template:', error);
+      return '// Welcome to CodeCollab Studio!\n// Start coding here...';
+    }
   }
 
-  formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  // Test connectivity to Judge0 API
+  async testConnectivity() {
+    return await OnlineCodeExecutionService.testConnectivity();
+  }
+
+  // Get execution service statistics
+  getServiceStats() {
+    return OnlineCodeExecutionService.getStats();
   }
 
   async getExecutionHistory(roomId, page = 1, limit = 20) {
@@ -341,79 +436,6 @@ class CodeExecutionService {
     };
   }
 
-  async runLocally(executionId, config, code, input) {
-    const tempDir = path.join(process.cwd(), 'temp', executionId);
-    
-    try {
-      await fs.mkdir(tempDir, { recursive: true });
-      
-      const filename = `code${config.fileExtension}`;
-      const filepath = path.join(tempDir, filename);
-      
-      await fs.writeFile(filepath, code);
-      
-      if (input) {
-        await fs.writeFile(path.join(tempDir, 'input.txt'), input);
-      }
-      
-      const startTime = Date.now();
-      let command;
-      
-      switch (config.language || config.fileExtension.substring(1)) {
-        case 'javascript':
-        case '.js':
-          command = `node "${filepath}"`;
-          break;
-        case 'python':
-        case '.py':
-          command = `python "${filepath}"`;
-          break;
-        default:
-          throw new Error(`Local execution not supported for ${config.fileExtension}`);
-      }
-      
-      if (input) {
-        command += ` < "${path.join(tempDir, 'input.txt')}"`;
-      }
-      
-      const { stdout, stderr } = await execAsync(command, {
-        cwd: tempDir,
-        timeout: config.timeout || 30000,
-        maxBuffer: 1024 * 1024 // 1MB
-      });
-      
-      const endTime = Date.now();
-      
-      return {
-        output: {
-          stdout: stdout || '',
-          stderr: stderr || '',
-          exitCode: 0,
-          executionTime: endTime - startTime,
-          memoryUsed: 'N/A (local execution)'
-        },
-        status: 'completed'
-      };
-      
-    } catch (error) {
-      return {
-        output: {
-          error: error.message,
-          stderr: error.stderr || '',
-          executionTime: 0,
-          memoryUsed: 'N/A'
-        },
-        status: error.code === 'TIMEOUT' ? 'timeout' : 'failed'
-      };
-    } finally {
-      // Cleanup temp directory
-      try {
-        await fs.rm(tempDir, { recursive: true, force: true });
-      } catch (cleanupError) {
-        console.error('Cleanup error:', cleanupError);
-      }
-    }
-  }
 
   async getExecutionById(executionId) {
     return await Execution.findOne({ executionId })
