@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import InteractiveTerminal from './InteractiveTerminal';
 import {
   Box,
   Paper,
@@ -222,6 +223,9 @@ const OnlineGDB_IDE = ({
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionTime, setExecutionTime] = useState(0);
   const [memoryUsed, setMemoryUsed] = useState(0);
+  const [currentExecutionId, setCurrentExecutionId] = useState(null);
+  const [useInteractiveMode, setUseInteractiveMode] = useState(true);
+  const terminalRef = useRef(null);
 
   // UI state
   const [theme, setTheme] = useState('monokai');
@@ -295,7 +299,21 @@ const OnlineGDB_IDE = ({
     }
   };
 
-  // Execute code function
+  // Execute code function will be defined after executeCode
+
+  const sendInputToExecution = (input) => {
+    if (currentExecutionId && socketService?.socket) {
+      socketService.socket.emit('send-execution-input', {
+        executionId: currentExecutionId,
+        input
+      });
+    }
+  };
+
+  const clearTerminal = () => {
+    setOutput('');
+  };
+
   const executeCode = async () => {
     if (!code.trim()) {
       toast.error('Please write some code first!');
@@ -339,7 +357,10 @@ const OnlineGDB_IDE = ({
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => null);
+        const errorMessage = errorData?.message || errorData?.error || `HTTP ${response.status} error`;
+        console.error('Execution API error:', errorData);
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -397,6 +418,9 @@ const OnlineGDB_IDE = ({
       setIsExecuting(false);
     }
   };
+
+  // Interactive execution function - just use the regular execute for now
+  const executeCodeInteractive = executeCode;
 
   // Handle code change
   const handleCodeChange = (value) => {
@@ -541,7 +565,7 @@ const OnlineGDB_IDE = ({
               variant="contained"
               color="success"
               startIcon={isExecuting ? <CircularProgress size={16} color="inherit" /> : <PlayArrow />}
-              onClick={executeCode}
+              onClick={useInteractiveMode ? executeCodeInteractive : executeCode}
               disabled={isExecuting}
               sx={{ fontWeight: 600 }}
             >
@@ -550,6 +574,16 @@ const OnlineGDB_IDE = ({
           </Tooltip>
 
           <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.3)', mx: 1 }} />
+
+          <Tooltip title={showFileExplorer ? 'Hide File Explorer' : 'Show File Explorer'}>
+            <IconButton
+              size="small"
+              onClick={() => setShowFileExplorer(!showFileExplorer)}
+              sx={{ color: showFileExplorer ? '#4285f4' : 'white' }}
+            >
+              <Folder />
+            </IconButton>
+          </Tooltip>
 
           <Tooltip title="Settings">
             <IconButton
@@ -575,6 +609,30 @@ const OnlineGDB_IDE = ({
 
       {/* Main Content Area */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* File Explorer - Left Panel */}
+        <AnimatePresence>
+          {showFileExplorer && (
+            <motion.div
+              initial={{ x: -300, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -300, opacity: 0 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 200 }}
+              style={{ width: '300px', height: '100%' }}
+            >
+              <AdvancedFileSystem
+                roomId={roomId}
+                user={user}
+                socketService={socketService}
+                onFileSelect={handleFileSelect}
+                onFileCreate={handleFileCreate}
+                onFileDelete={handleFileDelete}
+                selectedFile={selectedFile}
+                isAdmin={isAdmin}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Code Editor */}
         <Box sx={{
           flex: 1,
@@ -649,7 +707,7 @@ const OnlineGDB_IDE = ({
         }}>
           {/* Input Section */}
           <AnimatePresence>
-            {showInput && (
+            {showInput && !useInteractiveMode && (
               <motion.div
                 initial={{ height: 0 }}
                 animate={{ height: '30%' }}
@@ -715,7 +773,7 @@ const OnlineGDB_IDE = ({
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            minHeight: showInput ? '70%' : '100%'
+            minHeight: showInput && !useInteractiveMode ? '70%' : '100%'
           }}>
             {/* Output Header with Tabs */}
             <Paper
@@ -768,7 +826,18 @@ const OnlineGDB_IDE = ({
 
             {/* Output Content */}
             <Box sx={{ flex: 1, position: 'relative' }}>
-              {activeTab === 0 && (
+              {activeTab === 0 && useInteractiveMode && (
+                <InteractiveTerminal
+                  isExecuting={isExecuting}
+                  onSendInput={sendInputToExecution}
+                  onClear={clearTerminal}
+                  executionId={currentExecutionId}
+                  socketService={socketService}
+                  output={output}
+                />
+              )}
+
+              {activeTab === 0 && !useInteractiveMode && (
                 <Paper
                   elevation={0}
                   sx={{

@@ -137,62 +137,7 @@ const roomSchema = new mongoose.Schema({
     memoryLimit: { type: String, default: '128MB' }
   },
   fileSystem: {
-    files: [{
-      id: {
-        type: String,
-        required: true
-      },
-      name: {
-        type: String,
-        required: true
-      },
-      path: {
-        type: String,
-        required: true
-      },
-      type: {
-        type: String,
-        enum: ['file', 'folder'],
-        required: true
-      },
-      content: {
-        type: String,
-        default: ''
-      },
-      language: {
-        type: String,
-        enum: ['javascript', 'python', 'cpp', 'csharp', 'java', 'go', 'rust', 'html', 'css', 'json', 'text'],
-        default: 'text'
-      },
-      size: {
-        type: Number,
-        default: 0
-      },
-      parentId: {
-        type: String,
-        default: null
-      },
-      createdBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-      },
-      createdAt: {
-        type: Date,
-        default: Date.now
-      },
-      modifiedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-      },
-      modifiedAt: {
-        type: Date,
-        default: Date.now
-      },
-      isActive: {
-        type: Boolean,
-        default: false
-      }
-    }],
+    files: [mongoose.Schema.Types.Mixed], // Support nested structures
     activeFile: {
       type: String,
       default: null
@@ -200,6 +145,10 @@ const roomSchema = new mongoose.Schema({
     lastSync: {
       type: Date,
       default: Date.now
+    },
+    version: {
+      type: Number,
+      default: 1
     }
   },
   ideSettings: {

@@ -25,9 +25,7 @@ import {
   Chip,
   Divider,
   Alert,
-  CircularProgress,
-  TreeView,
-  TreeItem
+  CircularProgress
 } from '@mui/material';
 import {
   Folder,
@@ -52,8 +50,7 @@ import {
   TextFields,
   DataObject,
   Html,
-  Css,
-  JavaScript
+  Css
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 
@@ -65,10 +62,10 @@ const getFileIcon = (fileName, isDirectory) => {
 
   const iconMap = {
     // Programming languages
-    'js': <JavaScript sx={{ color: '#f7df1e' }} />,
-    'jsx': <JavaScript sx={{ color: '#61dafb' }} />,
-    'ts': <JavaScript sx={{ color: '#3178c6' }} />,
-    'tsx': <JavaScript sx={{ color: '#3178c6' }} />,
+    'js': <Code sx={{ color: '#f7df1e' }} />,
+    'jsx': <Code sx={{ color: '#61dafb' }} />,
+    'ts': <Code sx={{ color: '#3178c6' }} />,
+    'tsx': <Code sx={{ color: '#3178c6' }} />,
     'py': <Code sx={{ color: '#3776ab' }} />,
     'java': <Code sx={{ color: '#ed8b00' }} />,
     'cpp': <Code sx={{ color: '#00599c' }} />,

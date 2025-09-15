@@ -427,16 +427,33 @@ const ModernIDE = ({
       
       if (response.ok) {
         const data = await response.json();
-        setCode(data.template || getDefaultTemplate(language));
+        setCode(data.template || await getDefaultTemplate(language));
       } else {
-        setCode(getDefaultTemplate(language));
+        setCode(await getDefaultTemplate(language));
       }
     } catch (error) {
-      setCode(getDefaultTemplate(language));
+      setCode(await getDefaultTemplate(language));
     }
   };
 
-  const getDefaultTemplate = (language) => {
+  const getDefaultTemplate = async (language) => {
+    // Try to fetch from API first
+    try {
+      const response = await fetch(`/api/ide/template/${language}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.data.template;
+      }
+    } catch (error) {
+      console.error('Failed to fetch template from API:', error);
+    }
+
+    // Fallback templates if API fails
     const templates = {
       javascript: 'console.log("Hello, World! 🚀");',
       python: 'print("Hello, World! 🚀")',

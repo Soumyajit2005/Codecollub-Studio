@@ -13,7 +13,7 @@ const executionSchema = new mongoose.Schema({
   language: {
     type: String,
     required: true,
-    enum: ['javascript', 'python', 'cpp', 'csharp', 'java', 'go', 'rust', 'typescript']
+    enum: ['javascript', 'python', 'cpp', 'c', 'csharp', 'java', 'go', 'rust', 'typescript']
   },
   code: {
     type: String,
@@ -30,12 +30,12 @@ const executionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'running', 'completed', 'failed', 'timeout'],
+    enum: ['pending', 'running', 'processing', 'completed', 'failed', 'timeout'],
     default: 'pending'
   },
   environment: {
     type: String,
-    enum: ['local', 'docker', 'sandbox', 'judge0_online'],
+    enum: ['local', 'docker', 'sandbox', 'judge0_online', 'judge0_enhanced'],
     default: 'judge0_online'
   },
   containerId: String,

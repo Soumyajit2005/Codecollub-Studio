@@ -176,17 +176,34 @@ const ProfessionalIDE = ({
       
       if (response.ok) {
         const data = await response.json();
-        setCode(data.template || getDefaultTemplate(language));
+        setCode(data.template || await getDefaultTemplate(language));
       } else {
-        setCode(getDefaultTemplate(language));
+        setCode(await getDefaultTemplate(language));
       }
     } catch (error) {
       console.error('Failed to load language template:', error);
-      setCode(getDefaultTemplate(language));
+      setCode(await getDefaultTemplate(language));
     }
   };
 
-  const getDefaultTemplate = (language) => {
+  const getDefaultTemplate = async (language) => {
+    // Try to fetch from API first
+    try {
+      const response = await fetch(`/api/ide/template/${language}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.data.template;
+      }
+    } catch (error) {
+      console.error('Failed to fetch template from API:', error);
+    }
+
+    // Fallback templates if API fails
     const templates = {
       javascript: `// Welcome to CodeCollab Studio!
 console.log("Hello, World! 🚀");
@@ -194,20 +211,7 @@ console.log("Hello, World! 🚀");
 // Try some JavaScript here...
 const numbers = [1, 2, 3, 4, 5];
 const doubled = numbers.map(n => n * 2);
-console.log("Doubled:", doubled);
-
-// Interactive input example
-const readline = require('readline');
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
-
-// Uncomment to test input:
-// rl.question('What is your name? ', (answer) => {
-//   console.log(\`Hello, \${answer}!\`);
-//   rl.close();
-// });`,
+console.log("Doubled:", doubled);`,
 
       python: `# Welcome to CodeCollab Studio!
 print("Hello, World! 🚀")
@@ -215,12 +219,7 @@ print("Hello, World! 🚀")
 # Try some Python here...
 numbers = [1, 2, 3, 4, 5]
 doubled = [n * 2 for n in numbers]
-print("Doubled:", doubled)
-
-# Interactive input example
-# Uncomment to test input:
-# name = input("What is your name? ")
-# print(f"Hello, {name}!")`,
+print("Doubled:", doubled)`,
 
       java: `// Welcome to CodeCollab Studio!
 import java.util.*;

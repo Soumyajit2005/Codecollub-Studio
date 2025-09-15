@@ -17,7 +17,9 @@
       "WebFetch(domain:docs.jdoodle.com)",
       "WebFetch(domain:www.jdoodle.com)",
       "WebFetch(domain:ce.judge0.com)",
-      "WebFetch(domain:www.onlinegdb.com)"
+      "WebFetch(domain:www.onlinegdb.com)",
+      "Bash(pkill:*)",
+      "Bash(PORT=3002 npm run dev)"
     ],
     "deny": [],
     "ask": []

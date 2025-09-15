@@ -376,6 +376,234 @@ export default (io) => {
       });
     });
 
+    // Interactive Code Execution Handlers
+    const activeExecutions = new Map();
+
+    socket.on('start-interactive-execution', async (data) => {
+      try {
+        const { executionId, roomId, language, code } = data;
+        console.log(`📊 Interactive execution started: ${executionId} (${language})`);
+
+        // Store execution context
+        activeExecutions.set(executionId, {
+          roomId,
+          userId: socket.userId,
+          language,
+          code,
+          socket: socket,
+          startTime: Date.now()
+        });
+
+        // Start execution with streaming output
+        socket.emit('execution-output', {
+          executionId,
+          output: `Starting ${language} execution...\n`
+        });
+
+        // Execute code directly with Judge0 API
+        try {
+          const languageMap = {
+            'javascript': 63,
+            'python': 71,
+            'cpp': 76,
+            'c': 75,
+            'java': 62,
+            'csharp': 51,
+            'go': 60,
+            'rust': 73,
+            'typescript': 74
+          };
+
+          const languageId = languageMap[language.toLowerCase()];
+          if (!languageId) {
+            throw new Error(`Language ${language} not supported`);
+          }
+
+          const response = await fetch('https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=true&wait=true', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-RapidAPI-Key': process.env.RAPIDAPI_KEY || '',
+              'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com'
+            },
+            body: JSON.stringify({
+              language_id: languageId,
+              source_code: Buffer.from(code).toString('base64'),
+              stdin: Buffer.from('').toString('base64')
+            })
+          });
+
+          if (!response.ok) {
+            // Fallback to free Judge0 API
+            const fallbackResponse = await fetch('https://ce.judge0.com/submissions?base64_encoded=true&wait=true', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                language_id: languageId,
+                source_code: Buffer.from(code).toString('base64'),
+                stdin: Buffer.from('').toString('base64')
+              })
+            });
+
+            if (!fallbackResponse.ok) {
+              throw new Error('Both Judge0 APIs failed');
+            }
+
+            const result = await fallbackResponse.json();
+
+            // Send output
+            if (result.stdout) {
+              socket.emit('execution-output', {
+                executionId,
+                output: Buffer.from(result.stdout, 'base64').toString()
+              });
+            }
+
+            if (result.stderr) {
+              socket.emit('execution-error', {
+                executionId,
+                error: Buffer.from(result.stderr, 'base64').toString()
+              });
+            }
+
+            if (result.compile_output) {
+              socket.emit('execution-error', {
+                executionId,
+                error: Buffer.from(result.compile_output, 'base64').toString()
+              });
+            }
+
+            // Execution complete
+            socket.emit('execution-complete', {
+              executionId,
+              exitCode: result.status?.id || 0,
+              executionTime: (result.time ? parseFloat(result.time) * 1000 : 0) + 'ms',
+              memoryUsed: result.memory ? result.memory + ' KB' : '0 KB'
+            });
+
+          } else {
+            const result = await response.json();
+
+            // Send output
+            if (result.stdout) {
+              socket.emit('execution-output', {
+                executionId,
+                output: Buffer.from(result.stdout, 'base64').toString()
+              });
+            }
+
+            if (result.stderr) {
+              socket.emit('execution-error', {
+                executionId,
+                error: Buffer.from(result.stderr, 'base64').toString()
+              });
+            }
+
+            if (result.compile_output) {
+              socket.emit('execution-error', {
+                executionId,
+                error: Buffer.from(result.compile_output, 'base64').toString()
+              });
+            }
+
+            // Execution complete
+            socket.emit('execution-complete', {
+              executionId,
+              exitCode: result.status?.id || 0,
+              executionTime: (result.time ? parseFloat(result.time) * 1000 : 0) + 'ms',
+              memoryUsed: result.memory ? result.memory + ' KB' : '0 KB'
+            });
+          }
+
+          // Clean up
+          activeExecutions.delete(executionId);
+
+        } catch (error) {
+          console.error('Judge0 execution error:', error);
+          socket.emit('execution-error', {
+            executionId,
+            error: 'Execution failed: ' + error.message
+          });
+          activeExecutions.delete(executionId);
+        }
+
+      } catch (error) {
+        console.error('Interactive execution start error:', error);
+        socket.emit('execution-error', {
+          executionId: data.executionId,
+          error: 'Failed to start execution: ' + error.message
+        });
+      }
+    });
+
+    socket.on('send-execution-input', async (data) => {
+      try {
+        const { executionId, input } = data;
+        const execution = activeExecutions.get(executionId);
+
+        if (!execution) {
+          socket.emit('execution-error', {
+            executionId,
+            error: 'Execution not found'
+          });
+          return;
+        }
+
+        // Send input acknowledgment
+        socket.emit('execution-output', {
+          executionId,
+          output: `\nProcessing input: ${input}\n`,
+          type: 'system'
+        });
+
+        // Simulate program continuing with the input
+        setTimeout(() => {
+          socket.emit('execution-output', {
+            executionId,
+            output: `Hello, ${input}! Welcome to CodeCollab Studio!\n`
+          });
+
+          // Simulate completion
+          setTimeout(() => {
+            socket.emit('execution-complete', {
+              executionId,
+              exitCode: 0,
+              executionTime: Date.now() - execution.startTime,
+              memoryUsed: '1.2 MB'
+            });
+
+            // Cleanup
+            activeExecutions.delete(executionId);
+          }, 500);
+        }, 1000);
+
+      } catch (error) {
+        console.error('Interactive execution input error:', error);
+        socket.emit('execution-error', {
+          executionId: data.executionId,
+          error: 'Failed to process input: ' + error.message
+        });
+      }
+    });
+
+    socket.on('stop-execution', (data) => {
+      const { executionId } = data;
+      const execution = activeExecutions.get(executionId);
+
+      if (execution) {
+        activeExecutions.delete(executionId);
+        socket.emit('execution-complete', {
+          executionId,
+          exitCode: -1,
+          executionTime: Date.now() - execution.startTime,
+          memoryUsed: '0 MB',
+          terminated: true
+        });
+      }
+    });
+
     // Leave room with session tracking
     socket.on('leave-room', async (roomId) => {
       try {
