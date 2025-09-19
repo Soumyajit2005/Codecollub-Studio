@@ -121,7 +121,7 @@ const CollaborativeWhiteboard = ({
   const [objects, setObjects] = useState([]);
   const [history, setHistory] = useState([]);
   const [historyStep, setHistoryStep] = useState(-1);
-  const [selectedId, setSelectedId] = useState(null);
+  const [_selectedId, _setSelectedId] = useState(null);
   const [stageSize, setStageSize] = useState({ width: 1200, height: 800 });
   const [cursors, setCursors] = useState(new Map());
   

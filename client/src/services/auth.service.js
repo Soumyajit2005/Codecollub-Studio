@@ -85,12 +85,8 @@ class AuthService {
   }
 
   async getProfile() {
-    try {
-      const response = await this.api.get('/me');
-      return response.data.user;
-    } catch (error) {
-      throw error;
-    }
+    const response = await this.api.get('/me');
+    return response.data.user;
   }
 
   async updateProfile(profileData) {

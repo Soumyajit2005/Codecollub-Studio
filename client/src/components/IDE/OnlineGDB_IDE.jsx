@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import InteractiveTerminal from './InteractiveTerminal';
 import {
@@ -40,7 +40,6 @@ import {
   Download,
   Upload,
   Settings,
-  BugReport,
   Memory,
   Timer,
   Code,
@@ -49,8 +48,6 @@ import {
   VisibilityOff,
   FullscreenExit,
   Fullscreen,
-  ColorLens,
-  FormatSize,
   Edit,
   Delete,
   FileCopy,
@@ -223,8 +220,8 @@ const OnlineGDB_IDE = ({
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionTime, setExecutionTime] = useState(0);
   const [memoryUsed, setMemoryUsed] = useState(0);
-  const [currentExecutionId, setCurrentExecutionId] = useState(null);
-  const [useInteractiveMode, setUseInteractiveMode] = useState(true);
+  const [_currentExecutionId, _setCurrentExecutionId] = useState(null);
+  const [_useInteractiveMode, _setUseInteractiveMode] = useState(true);
   const terminalRef = useRef(null);
 
   // UI state

@@ -28,7 +28,6 @@ import {
   Edit2,
   Download,
   Upload,
-  MoreHorizontal,
   ChevronRight,
   ChevronDown,
   Search,
@@ -168,7 +167,7 @@ const FileExplorer = ({
           username: user.username
         });
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to create ' + createType);
     }
   };
@@ -208,7 +207,7 @@ const FileExplorer = ({
         const error = await response.json();
         toast.error(error.error || 'Failed to delete');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to delete');
     }
     
@@ -264,7 +263,7 @@ const FileExplorer = ({
         const error = await response.json();
         toast.error(error.error || 'Failed to rename');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to rename');
     }
   };
@@ -296,7 +295,7 @@ const FileExplorer = ({
       } else {
         toast.error('Failed to download file');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to download file');
     }
     
@@ -328,7 +327,7 @@ const FileExplorer = ({
           username: user.username
         });
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to upload file');
     }
     
@@ -356,8 +355,8 @@ const FileExplorer = ({
       } else {
         setFilteredFiles([]);
       }
-    } catch (error) {
-      console.error('Search failed:', error);
+    } catch (_error) {
+      console.error('Search failed:', _error);
       setFilteredFiles([]);
     }
   };
@@ -373,7 +372,7 @@ const FileExplorer = ({
         // This would trigger a parent component re-render
         toast.success('File tree refreshed');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to refresh');
     }
   };

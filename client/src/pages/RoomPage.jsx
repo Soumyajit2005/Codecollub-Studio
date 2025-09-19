@@ -97,9 +97,9 @@ const RoomPage = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const editorRef = useRef(null);
+  const _editorRef = useRef(null);
   const localVideoRef = useRef(null);
-  const chatScrollRef = useRef(null);
+  const _chatScrollRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   // Determine if user is admin (for now, assume all users have admin privileges)
@@ -114,14 +114,14 @@ const RoomPage = () => {
   // Code State
   const [code, setCode] = useState('console.log("Hello, World!");');
   const [language, setLanguage] = useState('javascript');
-  const [isExecuting, setIsExecuting] = useState(false);
+  const [_isExecuting, _setIsExecuting] = useState(false);
   const [executionResult, setExecutionResult] = useState(null);
   
   // UI Layout State - Meet-style views
   const [viewMode, setViewMode] = useState('meet'); // 'meet', 'code', 'whiteboard', 'split'
   const [sidePanel, setSidePanel] = useState(null); // 'chat', 'participants', 'settings'
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [toolbarVisible, setToolbarVisible] = useState(true);
+  const [_isFullscreen, _setIsFullscreen] = useState(false);
+  const [_toolbarVisible, _setToolbarVisible] = useState(true);
   const [floatingPanels, setFloatingPanels] = useState({
     code: false,
     whiteboard: false,
@@ -133,8 +133,8 @@ const RoomPage = () => {
   const [isAudioOn, setIsAudioOn] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [remoteStreams, setRemoteStreams] = useState(new Map());
-  const [dominantSpeaker, setDominantSpeaker] = useState(null);
-  const [gridLayout, setGridLayout] = useState('gallery'); // 'gallery', 'speaker', 'sidebar'
+  const [_dominantSpeaker, _setDominantSpeaker] = useState(null);
+  const [_gridLayout, _setGridLayout] = useState('gallery'); // 'gallery', 'speaker', 'sidebar'
   const [isPiPMode, setIsPiPMode] = useState(false);
   const [cameraStream, setCameraStream] = useState(null); // Store camera stream separately
   
@@ -146,7 +146,7 @@ const RoomPage = () => {
   const [unreadMessages, setUnreadMessages] = useState(0);
 
   // Settings State
-  const [settings, setSettings] = useState({
+  const [_settings, _setSettings] = useState({
     audioInputDevice: 'default',
     videoInputDevice: 'default',
     audioOutputDevice: 'default',
@@ -348,7 +348,7 @@ const RoomPage = () => {
 
   const handleExecutionResult = useCallback((result) => {
     setExecutionResult(result);
-    setIsExecuting(false);
+    _setIsExecuting(false);
     setFloatingPanels(prev => ({ ...prev, terminal: true }));
   }, []);
 
@@ -445,7 +445,7 @@ const RoomPage = () => {
     console.log('Whiteboard sync received:', data);
   }, []);
 
-  const handleCodeChange = (value) => {
+  const _handleCodeChange = (value) => {
     setCode(value);
     if (socketService.socket) {
       socketService.socket.emit('code-change', {
@@ -457,8 +457,8 @@ const RoomPage = () => {
     }
   };
 
-  const executeCode = async () => {
-    setIsExecuting(true);
+  const _executeCode = async () => {
+    _setIsExecuting(true);
     setExecutionResult(null);
     setFloatingPanels(prev => ({ ...prev, terminal: true }));
 
@@ -528,7 +528,7 @@ const RoomPage = () => {
       setExecutionResult(errorResult);
       toast.error('Failed to execute code');
     } finally {
-      setIsExecuting(false);
+      _setIsExecuting(false);
     }
   };
 
@@ -541,7 +541,7 @@ const RoomPage = () => {
         webrtcService.endCall();
         setIsVideoOn(false);
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to toggle video');
     }
   };
@@ -560,7 +560,7 @@ const RoomPage = () => {
         webrtcService.stopScreenShare();
         setIsScreenSharing(false);
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to toggle screen sharing');
     }
   };

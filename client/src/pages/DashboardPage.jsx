@@ -139,8 +139,8 @@ const ROOM_TEMPLATES = [
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { user, logout } = useAuthStore();
+  const [_searchParams, _setSearchParams] = useSearchParams();
+  const { user, logout, updateUser } = useAuthStore();
   const [activeTab, setActiveTab] = useState(0);
   const [myRooms, setMyRooms] = useState([]);
   const [publicRooms, setPublicRooms] = useState([]);

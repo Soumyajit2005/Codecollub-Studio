@@ -55,11 +55,11 @@ class OnlineCodeExecutionService {
       'Content-Type': 'application/json'
     };
 
-    // Create submission
+    // Create submission with optimized timeout
     const submissionResponse = await axios.post(
       `${JUDGE0_API_URL}/submissions?wait=true&base64_encoded=false`,
       submissionData,
-      { headers, timeout: 30000 }
+      { headers, timeout: 20000 } // Reduced timeout for faster failure detection
     );
 
     return this.processResult(submissionResponse.data);
@@ -128,31 +128,36 @@ class OnlineCodeExecutionService {
   }
 
   /**
-   * Poll for result using submission token
+   * Poll for result using submission token with exponential backoff
    */
-  async pollForResult(instanceUrl, token, maxPolls = 20) {
-    const pollInterval = 1000; // 1 second
-    
+  async pollForResult(instanceUrl, token, maxPolls = 15) {
+    let pollInterval = 500; // Start with 500ms
+    const maxInterval = 3000; // Max 3 seconds
+
     for (let i = 0; i < maxPolls; i++) {
       try {
         const response = await axios.get(
           `${instanceUrl}/submissions/${token}?base64_encoded=false`,
-          { timeout: 10000 }
+          { timeout: 8000 }
         );
 
         const result = response.data;
-        
+
         // Check if processing is complete
         if (result.status.id > 2) { // Status > 2 means processing is done
           return result;
         }
 
-        // Wait before next poll
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        
+        // Exponential backoff with jitter
+        const jitter = Math.random() * 200;
+        await new Promise(resolve => setTimeout(resolve, pollInterval + jitter));
+        pollInterval = Math.min(pollInterval * 1.5, maxInterval);
+
       } catch (error) {
         console.warn(`Polling attempt ${i + 1} failed:`, error.message);
         if (i === maxPolls - 1) throw error;
+        // Short delay before retry
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
 
@@ -223,10 +228,10 @@ class OnlineCodeExecutionService {
   }
 
   /**
-   * Get supported languages from Judge0
+   * Get supported languages from Judge0 with caching
    */
   async getSupportedLanguages(useCache = true) {
-    // Cache languages for 1 hour
+    // Cache languages for 6 hours (longer cache for better performance)
     if (useCache && this.cachedLanguages && this.cacheExpiry > Date.now()) {
       return this.cachedLanguages;
     }
@@ -280,9 +285,9 @@ class OnlineCodeExecutionService {
         }))
         .filter(lang => !lang.isArchived); // Only active languages
 
-      // Cache for 1 hour
+      // Cache for 6 hours
       this.cachedLanguages = supportedLanguages;
-      this.cacheExpiry = Date.now() + (60 * 60 * 1000);
+      this.cacheExpiry = Date.now() + (6 * 60 * 60 * 1000);
 
       return supportedLanguages;
 

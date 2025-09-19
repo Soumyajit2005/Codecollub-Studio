@@ -34,7 +34,6 @@ import {
   Folder,
   File,
   Plus,
-  MoreHorizontal,
   Play,
   Terminal,
   Settings,
@@ -48,15 +47,12 @@ import {
   FilePlus,
   Download,
   Upload,
-  Search,
   ChevronRight,
   ChevronDown,
   Eye,
   EyeOff,
   Code,
-  Palette,
-  Type,
-  RotateCcw
+  Palette
 } from 'lucide-react';
 import AceEditor from 'react-ace';
 
@@ -148,7 +144,7 @@ const EnhancedIDE = ({
         loadParticipants();
       }
     }
-  }, [roomId, isAdmin]);
+  }, [roomId, isAdmin, loadFileTree, loadJoinRequests, loadParticipants]);
 
   // Socket event listeners for file system
   useEffect(() => {
@@ -169,9 +165,9 @@ const EnhancedIDE = ({
         socket.off('participant-updated');
       };
     }
-  }, [socketService]);
+  }, [socketService, handleFileTreeUpdate, handleFileContentChange, handleActiveFileChange, handleJoinRequestReceived, handleParticipantUpdate]);
 
-  const loadFileTree = async () => {
+  const loadFileTree = useCallback(async () => {
     try {
       const response = await fetch(`/api/filesystem/${roomId}/files`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
@@ -190,7 +186,7 @@ const EnhancedIDE = ({
     } catch (error) {
       console.error('Failed to load file tree:', error);
     }
-  };
+  }, [roomId]);
 
   const initializeDefaultFiles = async () => {
     try {
@@ -439,7 +435,7 @@ const EnhancedIDE = ({
     }
   };
 
-  const updateParticipantPermissions = async (participantId, permissions) => {
+  const _updateParticipantPermissions = async (participantId, permissions) => {
     try {
       const response = await fetch(`/api/rooms/${roomId}/participants/${participantId}/permissions`, {
         method: 'PUT',

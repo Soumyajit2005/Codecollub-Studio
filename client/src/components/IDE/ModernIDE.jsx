@@ -47,16 +47,13 @@ import {
   Upload,
   Copy,
   RotateCcw,
-  Maximize2,
   Minimize2,
   Save,
   RefreshCw,
   Search,
   Eye,
   EyeOff,
-  Users,
-  Zap,
-  Monitor
+  Users
 } from 'lucide-react';
 
 // CodeMirror 6 imports
@@ -103,7 +100,7 @@ const ModernIDE = ({
   roomId, 
   user, 
   socketService, 
-  isAdmin = false,
+  isAdmin: _isAdmin = false,
   initialLanguage = 'javascript'
 }) => {
   // Core state
@@ -111,10 +108,10 @@ const ModernIDE = ({
   const [code, setCode] = useState('');
   const [input, setInput] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
-  const [executionResult, setExecutionResult] = useState(null);
+  const [_executionResult, _setExecutionResult] = useState(null);
 
   // UI state
-  const [activeTab, setActiveTab] = useState('code');
+  const [_activeTab, _setActiveTab] = useState('code');
   const [showTerminal, setShowTerminal] = useState(false);
   const [showFileExplorer, setShowFileExplorer] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -288,7 +285,7 @@ const ModernIDE = ({
 
   // Socket event handlers
   const handleExecutionResult = useCallback((result) => {
-    setExecutionResult(result);
+    _setExecutionResult(result);
     setIsExecuting(false);
     
     // Display result in terminal
@@ -343,7 +340,7 @@ const ModernIDE = ({
     if (isExecuting) return;
     
     setIsExecuting(true);
-    setExecutionResult(null);
+    _setExecutionResult(null);
     setShowTerminal(true);
     
     if (terminalInstance.current) {

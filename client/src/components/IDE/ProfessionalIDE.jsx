@@ -112,7 +112,7 @@ const ProfessionalIDE = ({
   roomId, 
   user, 
   socketService, 
-  isAdmin = false,
+  isAdmin: _isAdmin = false,
   initialLanguage = 'javascript',
   onLanguageChange,
   onCodeChange
@@ -123,7 +123,7 @@ const ProfessionalIDE = ({
   const [input, setInput] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionResult, setExecutionResult] = useState(null);
-  const [executionHistory, setExecutionHistory] = useState([]);
+  const [_executionHistory, _setExecutionHistory] = useState([]);
 
   // UI State
   const [showTerminal, setShowTerminal] = useState(false);

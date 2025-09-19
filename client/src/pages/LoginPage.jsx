@@ -16,13 +16,7 @@ import {
   Link as MuiLink,
   Paper
 } from '@mui/material';
-import {
-  Email,
-  Lock,
-  Visibility,
-  VisibilityOff,
-  Login as LoginIcon
-} from '@mui/icons-material';
+import { Lock } from '@mui/icons-material';
 import { LogIn, Mail, Eye, EyeOff, Code2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useAuthStore } from '../store/authStore';

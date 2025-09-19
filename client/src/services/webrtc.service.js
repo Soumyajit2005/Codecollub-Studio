@@ -223,7 +223,7 @@ class WebRTCService {
     return peer;
   }
 
-  handleOffer({ offer, from, username }) {
+  handleOffer({ offer, from, username: _username }) {
     this.connectToPeer(from, false).then(peer => {
       peer.signal(offer);
     });

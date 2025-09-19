@@ -186,8 +186,8 @@ class CodeExecutionService {
         languageId,
         code,
         input,
-        15, // 15 second time limit
-        128000 // 128MB memory limit
+        10, // 10 second time limit for faster execution
+        64000 // 64MB memory limit for better performance
       );
       
       const executionTime = Date.now() - startTime;
@@ -277,129 +277,11 @@ class CodeExecutionService {
     }
   }
 
-  // Get language template/boilerplate code
+  // Get language template/boilerplate code (use existing LANGUAGE_TEMPLATES)
   getLanguageTemplate(language) {
-    try {
-      // Import templates dynamically to avoid import issues
-      const templates = {
-        javascript: `// Welcome to CodeCollab Studio!
-console.log("Hello, World! 🚀");
-
-// Try some code here...
-const numbers = [1, 2, 3, 4, 5];
-const doubled = numbers.map(n => n * 2);
-console.log("Doubled:", doubled);`,
-        
-        python: `# Welcome to CodeCollab Studio!
-print("Hello, World! 🚀")
-
-# Try some code here...
-numbers = [1, 2, 3, 4, 5]
-doubled = [n * 2 for n in numbers]
-print("Doubled:", doubled)`,
-        
-        java: `// Welcome to CodeCollab Studio!
-public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello, World! 🚀");
-        
-        // Try some code here...
-        int[] numbers = {1, 2, 3, 4, 5};
-        for (int num : numbers) {
-            System.out.print(num * 2 + " ");
-        }
-    }
-}`,
-
-        cpp: `// Welcome to CodeCollab Studio!
-#include <iostream>
-#include <vector>
-
-int main() {
-    std::cout << "Hello, World! 🚀" << std::endl;
-    
-    // Try some code here...
-    std::vector<int> numbers = {1, 2, 3, 4, 5};
-    for (int num : numbers) {
-        std::cout << num * 2 << " ";
-    }
-    
-    return 0;
-}`,
-
-        c: `// Welcome to CodeCollab Studio!
-#include <stdio.h>
-
-int main() {
-    printf("Hello, World! 🚀\\n");
-    
-    // Try some code here...
-    int numbers[] = {1, 2, 3, 4, 5};
-    int size = sizeof(numbers) / sizeof(numbers[0]);
-    
-    for (int i = 0; i < size; i++) {
-        printf("%d ", numbers[i] * 2);
-    }
-    
-    return 0;
-}`,
-
-        csharp: `// Welcome to CodeCollab Studio!
-using System;
-
-class Program {
-    static void Main() {
-        Console.WriteLine("Hello, World! 🚀");
-        
-        // Try some code here...
-        int[] numbers = {1, 2, 3, 4, 5};
-        foreach (int num in numbers) {
-            Console.Write(num * 2 + " ");
-        }
-    }
-}`,
-
-        go: `// Welcome to CodeCollab Studio!
-package main
-
-import "fmt"
-
-func main() {
-    fmt.Println("Hello, World! 🚀")
-    
-    // Try some code here...
-    numbers := []int{1, 2, 3, 4, 5}
-    for _, num := range numbers {
-        fmt.Print(num * 2, " ")
-    }
-}`,
-
-        rust: `// Welcome to CodeCollab Studio!
-fn main() {
-    println!("Hello, World! 🚀");
-    
-    // Try some code here...
-    let numbers = vec![1, 2, 3, 4, 5];
-    let doubled: Vec<i32> = numbers.iter().map(|x| x * 2).collect();
-    println!("{:?}", doubled);
-}`,
-
-        ruby: `# Welcome to CodeCollab Studio!
-puts "Hello, World! 🚀"
-
-# Try some code here...
-numbers = [1, 2, 3, 4, 5]
-doubled = numbers.map { |n| n * 2 }
-puts "Doubled: #{doubled}"`
-      };
-
-      return templates[language] || `// Welcome to CodeCollab Studio!
+    return LANGUAGE_TEMPLATES[language] || `// Welcome to CodeCollab Studio!
 // ${language.charAt(0).toUpperCase() + language.slice(1)} code here...
 `;
-    } catch (error) {
-      console.error('Error getting language template:', error);
-      return '// Welcome to CodeCollab Studio!\n// Start coding here...';
-    }
   }
 
   // Test connectivity to Judge0 API

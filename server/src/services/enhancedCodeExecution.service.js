@@ -13,8 +13,8 @@ class EnhancedCodeExecutionService {
     ];
 
     this.currentEndpointIndex = 0;
-    this.maxRetries = 3;
-    this.timeout = 30000;
+    this.maxRetries = 2; // Reduced retries for faster failure
+    this.timeout = 20000; // Reduced timeout
 
     // Language mappings for better compatibility
     this.languageMap = {
@@ -78,9 +78,9 @@ class EnhancedCodeExecutionService {
         language_id: langConfig.id,
         source_code: this.preprocessCode(code, language),
         stdin: input,
-        cpu_time_limit: 15,
-        memory_limit: 256000, // 256MB
-        wall_time_limit: 20,
+        cpu_time_limit: 10, // Reduced time limit for faster execution
+        memory_limit: 128000, // 128MB - reduced for better performance
+        wall_time_limit: 15, // Reduced wall time
         expected_output: null,
         enable_per_process_and_thread_time_limit: true,
         enable_per_process_and_thread_memory_limit: true,
@@ -197,9 +197,9 @@ class EnhancedCodeExecutionService {
         this.recordEndpointFailure(endpoint);
         this.currentEndpointIndex++;
 
-        // Wait before retry
+        // Shorter wait before retry for faster recovery
         if (attempt < this.maxRetries - 1) {
-          await this.sleep(1000 * (attempt + 1));
+          await this.sleep(500 * (attempt + 1));
         }
       }
     }
@@ -270,24 +270,21 @@ class EnhancedCodeExecutionService {
   }
 
   /**
-   * Poll for execution result
+   * Poll for execution result with optimized timing
    */
-  async pollForResult(endpoint, token, executionId, maxPolls = 30) {
-    const pollInterval = 1000; // 1 second
+  async pollForResult(endpoint, token, executionId, maxPolls = 20) {
+    let pollInterval = 500; // Start with 500ms
+    const maxInterval = 2500; // Max 2.5 seconds
 
     for (let i = 0; i < maxPolls; i++) {
       try {
-        console.log(`[${executionId}] Polling attempt ${i + 1}/${maxPolls}`);
-
         const response = await axios.get(
           `${endpoint}/submissions/${token}?base64_encoded=false`,
-          { timeout: 10000 }
+          { timeout: 8000 }
         );
 
         const result = response.data;
         const statusId = result.status?.id || 0;
-
-        console.log(`[${executionId}] Poll result - Status ID: ${statusId}, Description: ${result.status?.description || 'Unknown'}`);
 
         // Status 1 = In Queue, Status 2 = Processing
         if (statusId > 2) {
@@ -295,13 +292,15 @@ class EnhancedCodeExecutionService {
           return result;
         }
 
-        // Wait before next poll
-        await this.sleep(pollInterval);
+        // Adaptive polling with exponential backoff
+        const jitter = Math.random() * 100;
+        await this.sleep(pollInterval + jitter);
+        pollInterval = Math.min(pollInterval * 1.4, maxInterval);
 
       } catch (error) {
         console.warn(`[${executionId}] Polling attempt ${i + 1} failed:`, error.message);
         if (i === maxPolls - 1) throw error;
-        await this.sleep(pollInterval);
+        await this.sleep(300); // Short delay before retry
       }
     }
 

@@ -67,7 +67,7 @@ class RoomService {
       const response = await this.api.get('/?type=all');
       return response.data.rooms || [];
     } catch (error) {
-      const message = error.response?.data?.error || 'Failed to fetch user rooms';
+      const _message = error.response?.data?.error || 'Failed to fetch user rooms';
       console.error('Failed to load user rooms:', error);
       throw error;
     }

@@ -60,7 +60,7 @@ const RegisterPage = () => {
       setError('');
       setIsLoading(true);
       
-      const { confirmPassword, firstName, lastName, location, ...basicData } = data;
+      const { confirmPassword: _confirmPassword, firstName, lastName, location, ...basicData } = data;
       
       // Structure the registration data with profile information
       const registrationData = {

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import {
   Box,
   Paper,
@@ -9,10 +9,6 @@ import {
   Tabs,
   Tab,
   List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  ListItemSecondaryAction,
   Avatar,
   Chip,
   Switch,
@@ -30,13 +26,8 @@ import {
   Card,
   CardContent,
   Badge,
-  Divider,
   Alert,
-  Tooltip,
-  Menu,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails
+  Tooltip
 } from '@mui/material';
 import {
   Users,
@@ -44,8 +35,6 @@ import {
   UserMinus,
   Settings,
   Shield,
-  Eye,
-  EyeOff,
   MessageCircle,
   Code,
   Palette,
@@ -55,32 +44,25 @@ import {
   FileText,
   Check,
   X,
-  MoreVertical,
   Crown,
-  Star,
-  Edit,
-  Trash2,
-  ExpandMore,
-  Clock,
-  Calendar
+  Clock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const AdminDashboard = ({ roomId, room, user, onClose, onUpdate }) => {
+const AdminDashboard = ({ roomId, room, onClose, onUpdate }) => {
   const [activeTab, setActiveTab] = useState(0);
   const [joinRequests, setJoinRequests] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [roomSettings, setRoomSettings] = useState({});
   const [permissionDialog, setPermissionDialog] = useState(null);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
-  const [contextMenu, setContextMenu] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
-  }, [roomId]);
+  }, [roomId, loadData]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       await Promise.all([
@@ -94,7 +76,7 @@ const AdminDashboard = ({ roomId, room, user, onClose, onUpdate }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [roomId]);
 
   const loadJoinRequests = async () => {
     try {

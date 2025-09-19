@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Box,
   Paper,
@@ -133,9 +132,9 @@ const AdvancedFileSystem = ({
   onFileSelect,
   onFileCreate,
   onFileDelete,
-  onFileRename,
+  onFileRename: _onFileRename,
   selectedFile,
-  isAdmin = false
+  isAdmin: _isAdmin = false
 }) => {
   // File system state
   const [fileTree, setFileTree] = useState([]);
@@ -158,7 +157,7 @@ const AdvancedFileSystem = ({
   // Initialize file system
   useEffect(() => {
     loadFileSystem();
-  }, [roomId]);
+  }, [loadFileSystem]);
 
   // Socket listeners for real-time updates
   useEffect(() => {
@@ -177,7 +176,7 @@ const AdvancedFileSystem = ({
         socket.off('file-renamed');
       };
     }
-  }, [socketService]);
+  }, [socketService, handleFileSystemUpdate, handleFileCreated, handleFileDeleted, handleFileRenamed]);
 
   // Filter files based on search query
   useEffect(() => {
@@ -203,33 +202,7 @@ const AdvancedFileSystem = ({
     return result;
   };
 
-  const loadFileSystem = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/files/${roomId}/tree`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setFileTree(data.fileTree || []);
-      } else if (response.status === 404) {
-        // Initialize with default files
-        await initializeDefaultFileSystem();
-      } else {
-        toast.error('Failed to load file system');
-      }
-    } catch (error) {
-      console.error('File system load error:', error);
-      toast.error('Error loading file system');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const initializeDefaultFileSystem = async () => {
+  const initializeDefaultFileSystem = useCallback(async () => {
     const defaultFiles = [
       {
         name: 'src',
@@ -294,7 +267,33 @@ int main() {
       console.error('File system initialization error:', error);
       toast.error('Failed to initialize file system');
     }
-  };
+  }, [roomId]);
+
+  const loadFileSystem = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/files/${roomId}/tree`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFileTree(data.fileTree || []);
+      } else if (response.status === 404) {
+        // Initialize with default files
+        await initializeDefaultFileSystem();
+      } else {
+        toast.error('Failed to load file system');
+      }
+    } catch (error) {
+      console.error('File system load error:', error);
+      toast.error('Error loading file system');
+    } finally {
+      setLoading(false);
+    }
+  }, [roomId, initializeDefaultFileSystem]);
 
   const handleFileSystemUpdate = useCallback((data) => {
     setFileTree(data.fileTree);
@@ -303,19 +302,19 @@ int main() {
   const handleFileCreated = useCallback((data) => {
     toast.info(`File "${data.fileName}" created by ${data.username}`);
     loadFileSystem();
-  }, []);
+  }, [loadFileSystem]);
 
   const handleFileDeleted = useCallback((data) => {
     toast.info(`File "${data.fileName}" deleted by ${data.username}`);
     loadFileSystem();
-  }, []);
+  }, [loadFileSystem]);
 
   const handleFileRenamed = useCallback((data) => {
     toast.info(`File renamed from "${data.oldName}" to "${data.newName}" by ${data.username}`);
     loadFileSystem();
-  }, []);
+  }, [loadFileSystem]);
 
-  const handleNodeClick = (node, event) => {
+  const handleNodeClick = (node, _event) => {
     if (node.type === 'file') {
       if (onFileSelect) {
         onFileSelect({
