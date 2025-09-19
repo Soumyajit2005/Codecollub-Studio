@@ -154,54 +154,7 @@ const AdvancedFileSystem = ({
   // File upload
   const fileInputRef = useRef(null);
 
-  // Initialize file system
-  useEffect(() => {
-    loadFileSystem();
-  }, [loadFileSystem]);
-
-  // Socket listeners for real-time updates
-  useEffect(() => {
-    if (socketService?.socket) {
-      const socket = socketService.socket;
-
-      socket.on('file-system-updated', handleFileSystemUpdate);
-      socket.on('file-created', handleFileCreated);
-      socket.on('file-deleted', handleFileDeleted);
-      socket.on('file-renamed', handleFileRenamed);
-
-      return () => {
-        socket.off('file-system-updated');
-        socket.off('file-created');
-        socket.off('file-deleted');
-        socket.off('file-renamed');
-      };
-    }
-  }, [socketService, handleFileSystemUpdate, handleFileCreated, handleFileDeleted, handleFileRenamed]);
-
-  // Filter files based on search query
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      const filtered = flattenFileTree(fileTree).filter(file =>
-        file.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredFiles(filtered);
-    } else {
-      setFilteredFiles([]);
-    }
-  }, [searchQuery, fileTree]);
-
-  const flattenFileTree = (tree, path = '') => {
-    let result = [];
-    for (const node of tree) {
-      const currentPath = path ? `${path}/${node.name}` : node.name;
-      result.push({ ...node, fullPath: currentPath });
-      if (node.children && node.children.length > 0) {
-        result = result.concat(flattenFileTree(node.children, currentPath));
-      }
-    }
-    return result;
-  };
-
+  // Initialize default file system function
   const initializeDefaultFileSystem = useCallback(async () => {
     const defaultFiles = [
       {
@@ -269,6 +222,7 @@ int main() {
     }
   }, [roomId]);
 
+  // Load file system function
   const loadFileSystem = useCallback(async () => {
     setLoading(true);
     try {
@@ -295,6 +249,7 @@ int main() {
     }
   }, [roomId, initializeDefaultFileSystem]);
 
+  // Socket event handlers
   const handleFileSystemUpdate = useCallback((data) => {
     setFileTree(data.fileTree);
   }, []);
@@ -313,6 +268,54 @@ int main() {
     toast.info(`File renamed from "${data.oldName}" to "${data.newName}" by ${data.username}`);
     loadFileSystem();
   }, [loadFileSystem]);
+
+  // Initialize file system
+  useEffect(() => {
+    loadFileSystem();
+  }, [loadFileSystem]);
+
+  // Socket listeners for real-time updates
+  useEffect(() => {
+    if (socketService?.socket) {
+      const socket = socketService.socket;
+
+      socket.on('file-system-updated', handleFileSystemUpdate);
+      socket.on('file-created', handleFileCreated);
+      socket.on('file-deleted', handleFileDeleted);
+      socket.on('file-renamed', handleFileRenamed);
+
+      return () => {
+        socket.off('file-system-updated');
+        socket.off('file-created');
+        socket.off('file-deleted');
+        socket.off('file-renamed');
+      };
+    }
+  }, [socketService, handleFileSystemUpdate, handleFileCreated, handleFileDeleted, handleFileRenamed]);
+
+  // Filter files based on search query
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const filtered = flattenFileTree(fileTree).filter(file =>
+        file.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredFiles(filtered);
+    } else {
+      setFilteredFiles([]);
+    }
+  }, [searchQuery, fileTree]);
+
+  const flattenFileTree = (tree, path = '') => {
+    let result = [];
+    for (const node of tree) {
+      const currentPath = path ? `${path}/${node.name}` : node.name;
+      result.push({ ...node, fullPath: currentPath });
+      if (node.children && node.children.length > 0) {
+        result = result.concat(flattenFileTree(node.children, currentPath));
+      }
+    }
+    return result;
+  };
 
   const handleNodeClick = (node, _event) => {
     if (node.type === 'file') {

@@ -19,7 +19,9 @@
       "WebFetch(domain:ce.judge0.com)",
       "WebFetch(domain:www.onlinegdb.com)",
       "Bash(pkill:*)",
-      "Bash(PORT=3002 npm run dev)"
+      "Bash(PORT=3002 npm run dev)",
+      "Bash(ipconfig)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

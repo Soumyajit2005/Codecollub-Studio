@@ -205,7 +205,7 @@ const THEMES = [
   { value: 'solarized_light', name: 'Solarized Light' }
 ];
 
-const OnlineGDB_IDE = ({
+const CodeExecutionIDE = ({
   roomId,
   user,
   socketService,
@@ -299,9 +299,9 @@ const OnlineGDB_IDE = ({
   // Execute code function will be defined after executeCode
 
   const sendInputToExecution = (input) => {
-    if (currentExecutionId && socketService?.socket) {
+    if (_currentExecutionId && socketService?.socket) {
       socketService.socket.emit('send-execution-input', {
-        executionId: currentExecutionId,
+        executionId: _currentExecutionId,
         input
       });
     }
@@ -562,7 +562,7 @@ const OnlineGDB_IDE = ({
               variant="contained"
               color="success"
               startIcon={isExecuting ? <CircularProgress size={16} color="inherit" /> : <PlayArrow />}
-              onClick={useInteractiveMode ? executeCodeInteractive : executeCode}
+              onClick={_useInteractiveMode ? executeCodeInteractive : executeCode}
               disabled={isExecuting}
               sx={{ fontWeight: 600 }}
             >
@@ -704,7 +704,7 @@ const OnlineGDB_IDE = ({
         }}>
           {/* Input Section */}
           <AnimatePresence>
-            {showInput && !useInteractiveMode && (
+            {showInput && !_useInteractiveMode && (
               <motion.div
                 initial={{ height: 0 }}
                 animate={{ height: '30%' }}
@@ -770,7 +770,7 @@ const OnlineGDB_IDE = ({
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            minHeight: showInput && !useInteractiveMode ? '70%' : '100%'
+            minHeight: showInput && !_useInteractiveMode ? '70%' : '100%'
           }}>
             {/* Output Header with Tabs */}
             <Paper
@@ -823,18 +823,18 @@ const OnlineGDB_IDE = ({
 
             {/* Output Content */}
             <Box sx={{ flex: 1, position: 'relative' }}>
-              {activeTab === 0 && useInteractiveMode && (
+              {activeTab === 0 && _useInteractiveMode && (
                 <InteractiveTerminal
                   isExecuting={isExecuting}
                   onSendInput={sendInputToExecution}
                   onClear={clearTerminal}
-                  executionId={currentExecutionId}
+                  executionId={_currentExecutionId}
                   socketService={socketService}
                   output={output}
                 />
               )}
 
-              {activeTab === 0 && !useInteractiveMode && (
+              {activeTab === 0 && !_useInteractiveMode && (
                 <Paper
                   elevation={0}
                   sx={{
@@ -964,4 +964,4 @@ const OnlineGDB_IDE = ({
   );
 };
 
-export default OnlineGDB_IDE;
+export default CodeExecutionIDE;

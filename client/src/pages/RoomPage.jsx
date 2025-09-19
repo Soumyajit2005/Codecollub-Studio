@@ -85,7 +85,7 @@ import {
 } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import ModernIDE from '../components/IDE/ModernIDE';
-import OnlineGDB_IDE from '../components/IDE/OnlineGDB_IDE';
+import CodeExecutionIDE from '../components/IDE/CodeExecutionIDE';
 import { useAuthStore } from '../store/authStore';
 import roomService from '../services/room.service';
 import socketService from '../services/socket.service';
@@ -725,7 +725,7 @@ const RoomPage = () => {
     }}>
       {/* Modern Header Bar */}
       <AnimatePresence>
-        {toolbarVisible && (
+        {_toolbarVisible && (
           <motion.div
             initial={{ y: -60 }}
             animate={{ y: 0 }}
@@ -878,7 +878,7 @@ const RoomPage = () => {
                       overflow: 'hidden',
                       position: 'relative',
                       border: isScreenSharing ? '3px solid #34a853' : 
-                             dominantSpeaker === user.id ? '3px solid #4285f4' : 
+                             _dominantSpeaker === user.id ? '3px solid #4285f4' : 
                              '1px solid rgba(255,255,255,0.1)',
                       transition: 'border 0.3s ease',
                       animation: isScreenSharing ? 'pulse 2s infinite' : 'none',
@@ -942,7 +942,7 @@ const RoomPage = () => {
                             borderRadius: '12px',
                             overflow: 'hidden',
                             position: 'relative',
-                            border: dominantSpeaker === userId ? '3px solid #4285f4' : '1px solid rgba(255,255,255,0.1)',
+                            border: _dominantSpeaker === userId ? '3px solid #4285f4' : '1px solid rgba(255,255,255,0.1)',
                             transition: 'border 0.3s ease'
                           }}
                         >
@@ -984,7 +984,7 @@ const RoomPage = () => {
               exit={{ opacity: 0, y: -20 }}
               style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
             >
-              <OnlineGDB_IDE
+              <CodeExecutionIDE
                 roomId={roomId}
                 user={user}
                 socketService={socketService}
@@ -1025,7 +1025,7 @@ const RoomPage = () => {
             >
               {/* Left: OnlineGDB-style IDE */}
               <Box sx={{ width: '50%', borderRight: '1px solid rgba(255,255,255,0.1)' }}>
-                <OnlineGDB_IDE
+                <CodeExecutionIDE
                   roomId={roomId}
                   user={user}
                   socketService={socketService}
